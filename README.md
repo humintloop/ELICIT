@@ -90,6 +90,16 @@ Open `http://localhost:5173` in Chrome or Edge with WebGPU enabled.
 
 ---
 
+## Local Model Loading
+
+ELICIT runs models in your browser through WebLLM and WebGPU. When you click **LOAD**, the selected model is downloaded by the browser and stored in the browser cache. The first load can be large, from roughly 700 MB to 6 GB depending on the model. Later loads are usually faster because the browser can reuse cached model artifacts.
+
+During the first download, compilation, or WebGPU initialization, the tab may appear frozen or unresponsive for a short period. This is expected for local browser inference, especially on larger models or machines with limited GPU memory. Judge mode can trigger another model download or model swap when it runs, then reload the victim model afterward.
+
+No external inference API is called by the app after the static site and model files are fetched. Findings, full responses, and reviewer notes are stored locally in the browser unless you export them.
+
+---
+
 ## Build
 
 ```bash
@@ -100,6 +110,8 @@ npm run preview
 ---
 
 ## Model Recommendations
+
+Choose a smaller model first if you are testing the workflow, using a laptop, or unsure whether WebGPU has enough available memory. Larger models produce more useful assurance signals but take longer to download, initialize, run, and swap during judge review.
 
 | Model | VRAM | Notes |
 |---|---:|---|
@@ -196,6 +208,9 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 
 - This lab evaluates local model behavior and does not prove production exploitability.
 - Results vary by model, runtime, quantization, prompt, context, and temperature.
+- Browser inference is constrained by local GPU/CPU memory, browser WebGPU support, cache storage limits, battery/thermal throttling, and tab lifecycle behavior.
+- First-run model downloads and judge-mode model swaps can make the page temporarily unresponsive while artifacts download, compile, or reload.
+- Clearing browser site data or using a different browser/profile can remove cached model artifacts and require downloading them again.
 - Heuristics are triage aids, not ground truth.
 - LLM judge mode can be biased or influenced; treat it as supporting evidence.
 - ISO/IEC 42001 and EU AI Act relevance depends on role, scope, risk classification, management-system scope, jurisdiction, and deployment context.

@@ -157,6 +157,8 @@ ${findings.length ? findings.map(buildFindingMarkdown).join('\n---\n\n') : 'No f
 
 - This lab evaluates local model behavior and does not prove exploitability against production systems.
 - Results can vary by model, quantization, prompt, temperature, context, and runtime.
+- Browser inference is constrained by local hardware, WebGPU support, cache storage, browser profile state, and tab lifecycle behavior.
+- First-run model downloads and judge-mode model swaps can temporarily pause the page while model artifacts download, compile, or reload.
 - The heuristic evaluator is triage-oriented; \`REVIEW\` or \`PARTIAL\` should not be treated as a final pass/fail conclusion.
 - LLM-as-judge mode can introduce evaluator bias or prompt-injection risk; judge outputs should be treated as supporting evidence, not ground truth.
 - Material disagreement between heuristic and judge results is intentionally preserved as a manual-review signal.

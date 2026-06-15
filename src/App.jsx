@@ -3,6 +3,7 @@ import { MLCEngine } from '@mlc-ai/web-llm';
 import {
   Play, Square, Plus, Trash2, Download, Terminal,
   Search, RefreshCw, FlaskConical, FileText, ChevronDown, ChevronUp,
+  AlertTriangle,
 } from 'lucide-react';
 import { PAYLOADS, TECHNIQUES, PRESETS, EVALUATION_CASE_SCHEMA_VERSION, evaluateResponse } from './payloads';
 import { ASSURANCE_PROFILE, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
@@ -382,6 +383,8 @@ export default function App() {
   });
 
   const verdictColor = (v) => v === 'SUCCESS' ? C.red : v === 'PARTIAL' ? C.amber : v === 'FAILURE' || v === 'FAILED' ? C.coolDim : v === 'REVIEW' ? C.warmDim : C.text2;
+  const selectedVictimModel = VICTIM_MODELS.find(m => m.id === victimModelId);
+  const selectedJudgeModel = JUDGE_MODELS.find(m => m.id === judgeModelId);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -594,6 +597,27 @@ export default function App() {
           ))}
         </div>
       </header>
+
+      {activeTab === 'lab' && (modelStatus !== 'ready' || judgeMode) && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 20px',
+          borderBottom: `1px solid ${C.border}`,
+          background: 'rgba(200,120,68,.075)',
+          color: C.text2,
+          fontSize: 12,
+          lineHeight: 1.45,
+          flexShrink: 0,
+        }}>
+          <AlertTriangle size={14} color={C.amber} style={{ flexShrink: 0 }} />
+          <span>
+            Local runtime: first load downloads {selectedVictimModel?.size || 'the selected model'} into browser cache and can briefly freeze the tab while WebGPU initializes.
+            {judgeMode && ` Judge mode may download or swap ${selectedJudgeModel?.name || 'the judge model'}, then reload the victim model.`}
+          </span>
+        </div>
+      )}
 
       {/* ═══ LAB VIEW ════════════════════════════════════════════════════════ */}
       {activeTab === 'lab' && (
