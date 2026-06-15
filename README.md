@@ -44,12 +44,13 @@ Security issues in this repository should be reported through GitHub private sec
 
 | ID | Name | OWASP Mapping | Notes |
 |---|---|---|---|
-| AML.T0051 | LLM Prompt Injection | LLM01:2025 Prompt Injection | Parent technique for direct prompt injection |
+| AML.T0051 | LLM Prompt Injection | LLM01:2025 Prompt Injection | Parent technique family |
+| AML.T0051.000 | LLM Prompt Injection: Direct | LLM01:2025 Prompt Injection | Direct user-supplied prompt injection |
 | AML.T0051.001 | LLM Prompt Injection: Indirect | LLM01:2025 Prompt Injection | External content / RAG / email / document injection |
-| AML.T0054 | LLM Jailbreak | LLM01:2025 Prompt Injection | Bypass of constraints, guardrails, or intended behavior |
+| AML.T0054 | LLM Jailbreaking | LLM01:2025 Prompt Injection | Bypass of constraints, guardrails, or intended behavior |
 | AML.T0056 | Extract LLM System Prompt | LLM07:2025 System Prompt Leakage | System prompt / hidden instruction disclosure |
 
-The payload library also includes local delimiter-confusion variants under the prompt-injection family. They are intentionally kept out of the source-grounded technique table until the taxonomy is cleaner.
+The payload library also includes project-defined delimiter-confusion variants. They are tracked as local variants under `AML.T0051.000`, not as separate MITRE ATLAS technique IDs.
 
 ---
 

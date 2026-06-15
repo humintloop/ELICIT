@@ -32,11 +32,12 @@ export const TECHNIQUE_MITIGATION_MAP = {
   'AML.T0051.000': {
     recommended_mitigations: [
       'Separate trusted instructions from direct user input.',
+      'Treat user-supplied XML, JSON, markdown, transcript text, and delimiter-like content as data, not message boundaries.',
       'Validate outputs against the expected task and format.',
       'Use deterministic authorization outside the model for sensitive actions.',
     ],
     retest_guidance: [
-      'Rerun direct prompt-injection cases after prompt, model, or guardrail changes.',
+      'Rerun direct prompt-injection and delimiter-confusion cases after prompt, model, or guardrail changes.',
     ],
   },
   'AML.T0051.001': {
@@ -60,17 +61,6 @@ export const TECHNIQUE_MITIGATION_MAP = {
     ],
     retest_guidance: [
       'Rerun triggered-injection cases after workflow, event, or automation changes.',
-    ],
-  },
-  'AML.T0051.DC': {
-    recommended_mitigations: [
-      'Treat user-supplied XML, JSON, markdown, and transcript-like delimiters as data, not message boundaries.',
-      'Use structured APIs or message channels rather than parsing trust levels from plain text.',
-      'Add delimiter-confusion cases to the prompt-injection regression suite.',
-    ],
-    retest_guidance: [
-      'Rerun delimiter-confusion cases DC-001 through DC-004.',
-      'Confirm fake system, developer, assistant, XML, JSON, or markdown boundaries do not alter instruction priority.',
     ],
   },
   'AML.T0054': {

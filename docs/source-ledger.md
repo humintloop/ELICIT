@@ -15,7 +15,7 @@ It is a traceability aid, not a legal or audit conclusion.
 
 | Source ID | Source | Repo / File | Used For | Mapping Type | Date Reviewed |
 |---|---|---|---|---|---|
-| MITRE-ATLAS-DATA | MITRE ATLAS data repository | `mitre-atlas/atlas-data`, `dist/ATLAS.yaml` | Technique IDs, names, descriptions, variants, and tactic context | Official source / direct mapping | 2026-06-14 |
+| MITRE-ATLAS-DATA | MITRE ATLAS data repository | `mitre-atlas/atlas-data`, `dist/ATLAS.yaml`, commit `da9ebf9b66e6902ad97c267e2a20af0bd996a60f` | Technique IDs, names, descriptions, variants, and tactic context | Official source / direct mapping | 2026-06-15 |
 | OWASP-LLM-2025 | OWASP Top 10 for LLM Applications 2025 | `owasp/www-project-top-10-for-large-language-model-applications`, `2_0_vulns/*.md` | LLM risk categories, prevention language, and scenario context | Official source / direct and inferred mapping | 2026-06-14 |
 | ISO-42001-OFFICIAL | ISO/IEC 42001:2023 source page | `https://www.iso.org/standard/42001` | AIMS purpose, applicability, and management-system context | Official source / high-level context | 2026-06-15 |
 | ISO-42001-SECTION9-WORKING | User-provided ISO 42001 mapping notes | `sunilp/ai-governance-framework`, `framework/compliance/iso-42001-mapping.md` | Section 9 labels for monitoring/measurement, internal audit, and management review | Third-party implementation guide / inferred mapping | 2026-06-15 |
@@ -30,7 +30,7 @@ It is a traceability aid, not a legal or audit conclusion.
 | `AML.T0051.000` | Direct | `dist/ATLAS.yaml` | Direct user-supplied prompt injection relevance |
 | `AML.T0051.001` | Indirect | `dist/ATLAS.yaml` | External-content and RAG prompt injection relevance |
 | `AML.T0051.002` | Triggered | `dist/ATLAS.yaml` | User-action or event-triggered prompt injection relevance |
-| `AML.T0054` | LLM Jailbreak | `dist/ATLAS.yaml` | Jailbreak / guardrail bypass testing relevance |
+| `AML.T0054` | LLM Jailbreaking | `dist/ATLAS.yaml` | Jailbreak / guardrail bypass testing relevance |
 | `AML.T0056` | Extract LLM System Prompt | `dist/ATLAS.yaml` | System prompt extraction and prompt leakage testing relevance |
 | `AML.T0057` | LLM Data Leakage | `dist/ATLAS.yaml` | Sensitive disclosure and output monitoring relevance |
 
@@ -53,7 +53,7 @@ It is a traceability aid, not a legal or audit conclusion.
 - ISO/IEC 42001 section 9 references are used to frame performance-evaluation evidence: monitoring and measurement, internal audit, and management review.
 - EU AI Act references use a SaaS / critical digital infrastructure readiness lens for CDN, edge, cybersecurity, cloud, and critical digital infrastructure SaaS providers. High-risk status depends on actual system role, intended purpose, jurisdiction, and whether the AI system is used as a safety component or falls into another high-risk category.
 - Cybersecurity-only components are not automatically treated as EU AI Act safety components.
-- The local custom technique `AML.T0051.DC` is not an official MITRE ATLAS technique. It is a local variant for delimiter-confusion testing under the broader prompt-injection family.
+- Delimiter-confusion cases are project-defined local variants. They are recorded under the official direct prompt-injection sub-technique, with `source_status: local-variant`, and are not represented as separate MITRE ATLAS technique IDs.
 
 ## Review Checklist
 

@@ -2,7 +2,7 @@
 // These mappings are designed as traceability aids, not legal or certification conclusions.
 
 export const CONTROL_SET_VERSION = '0.1.0';
-export const FRAMEWORK_MAPPING_VERSION = '0.2.0';
+export const FRAMEWORK_MAPPING_VERSION = '0.2.1';
 
 export const ASSURANCE_PROFILE = {
   id: 'saas-critical-digital-infrastructure-readiness',
@@ -103,8 +103,7 @@ export const FRAMEWORK_REFERENCES = {
     'AML.T0051': 'LLM Prompt Injection',
     'AML.T0051.000': 'LLM Prompt Injection: Direct',
     'AML.T0051.001': 'LLM Prompt Injection: Indirect',
-    'AML.T0051.DC': 'Delimiter Confusion (local variant of AML.T0051)',
-    'AML.T0054': 'LLM Jailbreak',
+    'AML.T0054': 'LLM Jailbreaking',
     'AML.T0056': 'Extract LLM System Prompt',
   },
   nist_ai_rmf: {
@@ -142,6 +141,18 @@ export const TECHNIQUE_CONTROL_MAP = {
       'Audit and management-review input: repeated findings should feed internal audit scope, risk treatment decisions, and management review.',
     ],
   },
+  'AML.T0051.000': {
+    controls: ['LLM-SEC-001', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-EVAL-002'],
+    nist_ai_rmf: ['Map', 'Measure', 'Manage', 'Govern'],
+    eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    eu_ai_act_scope: 'conditional-readiness',
+    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
+    readiness_gaps: [
+      'Monitoring and measurement gap: successful or partial direct prompt injection suggests the control may be ineffective or degrading and should be tracked as evaluation evidence.',
+      'Robustness and cybersecurity gap: adversarial user input may alter system behavior outside the intended instruction hierarchy.',
+      'Audit and management-review input: repeated direct-injection findings should feed internal audit scope, risk treatment decisions, and management review.',
+    ],
+  },
   'AML.T0051.001': {
     controls: ['LLM-SEC-001', 'LLM-SEC-003', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-MON-001'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage', 'Govern'],
@@ -152,17 +163,6 @@ export const TECHNIQUE_CONTROL_MAP = {
       'External-content trust-boundary gap: retrieved or processed content may be treated as instruction rather than untrusted evidence.',
       'Post-market monitoring gap: indirect attacks are likely to appear through real documents, tickets, webpages, or tool outputs and need operational detection paths.',
       'Management-review input: repeated indirect-injection findings indicate a systemic RAG, tool-output, or content-processing control weakness.',
-    ],
-  },
-  'AML.T0051.DC': {
-    controls: ['LLM-SEC-001', 'LLM-EVAL-001', 'LLM-EVAL-002'],
-    nist_ai_rmf: ['Measure', 'Manage'],
-    eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 15', 'Article 72'],
-    eu_ai_act_scope: 'conditional-readiness',
-    iso_42001_relevance: ['Clause 9.1', 'Clause 9.2'],
-    readiness_gaps: [
-      'Interface and parsing gap: message formatting or delimiter handling may allow user-controlled text to appear authoritative.',
-      'Traceability gap: evidence should preserve exact input boundaries, output, and parser assumptions for audit and retest.',
     ],
   },
   'AML.T0054': {

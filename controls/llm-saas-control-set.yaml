@@ -69,7 +69,7 @@ controls:
       scenarios and tested against actual controls.
     source_relevance:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056]
-      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025", "LLM08:2025"]
+      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Govern, Map, Measure]
       iso_42001: [9.1, 9.2, 9.3]
       eu_ai_act_readiness: [Article 9, Article 15, Article 17]
@@ -248,7 +248,7 @@ controls:
       AI controls require repeatable technical evidence, not only policy assertions.
     source_relevance:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056]
-      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025", "LLM08:2025"]
+      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Measure, Manage]
       iso_42001: [9.1, 9.2, 9.3]
       eu_ai_act_readiness: [Article 9, Article 12, Article 15, Article 72]
@@ -302,7 +302,7 @@ controls:
       Some failures will only emerge under real workflows, changing model behavior, or new attacker techniques.
     source_relevance:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056, AML.T0057]
-      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025"]
+      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM07:2025"]
       nist_ai_rmf: [Measure, Manage]
       iso_42001: [9.1, 9.3]
       eu_ai_act_readiness: [Article 12, Article 15, Article 72]
@@ -328,7 +328,7 @@ controls:
       retrieval contamination, or downstream tool effects.
     source_relevance:
       mitre_atlas: [AML.T0051, AML.T0054, AML.T0056, AML.T0057]
-      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM06:2025", "LLM07:2025", "LLM08:2025"]
+      owasp_llm: ["LLM01:2025", "LLM02:2025", "LLM07:2025", "LLM08:2025"]
       nist_ai_rmf: [Manage, Govern]
       iso_42001: [9.2, 9.3]
       eu_ai_act_readiness: [Article 9, Article 17, Article 72]
