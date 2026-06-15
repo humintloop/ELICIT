@@ -984,6 +984,9 @@ function FindingCard({ finding: f, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const vc = f.verdict === 'SUCCESS' ? C.red : f.verdict === 'PARTIAL' ? C.amber : f.verdict === 'REVIEW' ? C.warmDim : C.coolDim;
   const reviewerDecision = f.reviewerDecision || 'UNREVIEWED';
+  const mitigation = getMitigationMapping(f.techniqueId);
+  const recommendedMitigations = f.recommendedMitigations || f.recommended_mitigations || mitigation.recommended_mitigations || [];
+  const retestGuidance = f.retestGuidance || f.retest_guidance || mitigation.retest_guidance || [];
 
   return (
     <div style={{
@@ -1067,6 +1070,22 @@ function FindingCard({ finding: f, onUpdate, onDelete }) {
               <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>READINESS GAPS</div>
               <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
                 {f.readinessGaps.map((gap, idx) => <div key={idx}>- {gap}</div>)}
+              </div>
+            </div>
+          )}
+          {recommendedMitigations.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>RECOMMENDED MITIGATIONS</div>
+              <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
+                {recommendedMitigations.map((item, idx) => <div key={idx}>- {item}</div>)}
+              </div>
+            </div>
+          )}
+          {retestGuidance.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>RETEST GUIDANCE</div>
+              <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
+                {retestGuidance.map((item, idx) => <div key={idx}>- {item}</div>)}
               </div>
             </div>
           )}
