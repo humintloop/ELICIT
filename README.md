@@ -2,19 +2,15 @@
 
 ![ELICIT social preview](public/brand/elicit-social-preview.png)
 
-**ELICIT** is a local-first LLM evaluation lab for testing adversarial model behavior, triaging findings, and mapping failures to the controls that should have caught them.
-
-The lab runs in-browser with WebLLM/WebGPU. No external API calls are required after the initial model download.
+Run adversarial LLM evaluation cases in the browser, preserve the evidence locally, and map each finding to the controls and framework readiness questions it informs. WebLLM/WebGPU handles model execution in-browser; after the initial model download, no external API calls are required.
 
 > Red-team LLMs in the browser. Preserve the evidence. Map the control gap.
 
 ---
 
-## Why ELICIT?
+## Why It Exists
 
-The name reflects the project’s focus on elicitation, ambiguity, and adversarial behavior. The goal is not just to see whether a model fails, but to understand what causes it to reveal constraints, assumptions, or control gaps.
-
-ELICIT grew out of practical AI governance work: the question was not only whether AI controls existed on paper, but how to test whether those controls actually worked. The project connects adversarial testing with assurance evidence so technical findings can be reviewed, mapped, and improved over time.
+The useful question is not only whether a model can be made to fail. It is what that failure says about instruction hierarchy, data boundaries, monitoring, evidence retention, and the control that should have caught it.
 
 ---
 
@@ -34,8 +30,9 @@ Framework mappings are provided as control traceability aids for education and r
 - **Heuristic evaluation** for prompt leakage, jailbreak, and injection indicators.
 - **Optional local LLM judge** that returns a structured `VERDICT:` and `REASON:` response.
 - **Heuristic/judge disagreement handling** for manual-review cases.
-- **Findings tracker** with local evidence records, run IDs, model metadata, evaluator outputs, reviewer fields, and response evidence.
-- **JSON export** for raw finding records.
+- **Findings tracker** with local evidence records, run IDs, model metadata, evaluator outputs, reviewer decisions, and response evidence.
+- **Reviewer disposition workflow** for confirming, rejecting, retesting, or accepting risk on findings.
+- **JSON export** for raw evidence records.
 - **Markdown report export** for assessment-style documentation.
 - **Initial framework/control mapping data** including MITRE ATLAS, OWASP LLM Top 10, NIST AI RMF, ISO/IEC 42001 section 9, and EU AI Act readiness relevance.
 
@@ -55,7 +52,7 @@ Framework mappings are provided as control traceability aids for education and r
 
 ## Control Traceability Model
 
-The current v0.2 traceability aid is:
+The core traceability path is:
 
 ```text
 evaluation case → model response → heuristic/judge result → finding evidence → impacted control → framework readiness gap → mitigation → retest
@@ -73,7 +70,7 @@ Prompt injection succeeds
 
 The initial control notes live in [`controls/`](./controls/README.md). The implemented mappings currently live in [`src/data/frameworkMappings.js`](./src/data/frameworkMappings.js) and are intentionally lightweight. They demonstrate how technical LLM findings can be translated into control weaknesses for SaaS organizations using LLM-based technology.
 
-For Akamai-like organizations, ELICIT uses a **SaaS / Critical Digital Infrastructure Readiness** profile: AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure providers. EU AI Act references are readiness indicators only; high-risk status depends on the actual AI system, intended purpose, jurisdiction, and whether the AI system is used as a safety component or otherwise falls in scope.
+For Akamai-like organizations, the default profile is **SaaS / Critical Digital Infrastructure Readiness**: AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure providers. EU AI Act references are conditional readiness prompts only; high-risk status depends on the actual AI system, intended purpose, jurisdiction, and whether the AI system is used as a safety component or otherwise falls in scope.
 
 ---
 
@@ -143,10 +140,10 @@ Default framework/control mappings are applied by technique through `src/data/fr
 
 The findings view supports:
 
-- `EXPORT JSON` — raw machine-readable finding records.
+- `EXPORT JSON` — raw machine-readable evidence records.
 - `EXPORT REPORT` — Markdown assessment report with findings, response excerpts, evaluator outputs, impacted controls, framework readiness gaps, mitigation guidance, and retest guidance.
 
-Finding records now include run IDs, case versions, model/runtime metadata, model settings, full responses retained locally, evaluator outputs, mapped controls, ISO/EU readiness relevance, recommended mitigations, retest guidance, and reviewer fields. They are still local evidence records, not immutable audit trails.
+Evidence records include run IDs, case versions, model/runtime metadata, model settings, full responses retained locally, evaluator outputs, mapped controls, ISO/EU readiness relevance, recommended mitigations, retest guidance, and reviewer decisions. They are local records, not immutable audit trails.
 
 ## Judge Output
 
@@ -161,65 +158,34 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 
 ---
 
-## Roadmap
+## Current Status
 
-### v0.2 — Current MVP
+Implemented:
 
-- Clean repo structure
-- Evaluation-case-style payload metadata
-- Synthetic ambiguity probe placeholder
+- Local-first WebLLM test runner
+- Structured evaluation cases with case versioning
 - Heuristic triage with optional local LLM judge
 - Heuristic/judge disagreement handling
-- Lightweight finding records
-- Markdown report export
-- Initial framework/control mappings
+- Evidence-rich findings with run IDs, model metadata, retained responses, and reviewer disposition
+- Markdown and JSON exports
+- Source ledger, sample report, and README imagery
+- MITRE ATLAS, OWASP LLM Top 10, NIST AI RMF, ISO/IEC 42001 section 9, and conditional EU AI Act readiness mappings
+- Project-defined mitigation and retest guidance
 
-### v0.3 — Source and presentation pass
-
-- README images
-- Sample report
-- Source ledger
-- Initial source-grounded MITRE/OWASP mapping notes
-- ISO/IEC 42001 and EU AI Act readiness notes
-
-### v0.4 — Structured evaluation cases
-
-- Full structured evaluation-case schema with objective, expected secure behavior, failure mode, and success criteria
-- Case versioning
-- Evidence requirements
-- Per-case mapping override support
-
-### v0.5 — Evidence-rich findings
-
-- Run IDs
-- Model/runtime/config metadata
-- Full response retained locally
-- Reviewer decision fields
-- Evidence requirements in report output
-
-### v0.6 — Mitigation mapping
-
-- Project-defined mitigation guidance by technique
-- Recommended actions in report output
-- Retest guidance in report output
-
-### v1 — Evaluation quality
+Next:
 
 - Stronger judge prompt and JSON parsing
 - System-computed severity, confidence, and false-positive-risk fields
 - Multi-run reproducibility mode
 - Regression testing
 
-### v2 — Control traceability
+Later:
 
 - Expand `controls/` into a standalone completed LLM SaaS control set
 - Add control validation examples
 - Add framework crosswalk documentation
 - Surface impacted controls more prominently in the UI
 - Richer control-aware reports
-
-### v3 — Assurance package
-
 - HTML/PDF report output
 - Control evidence packages
 

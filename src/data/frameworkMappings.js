@@ -9,6 +9,11 @@ export const ASSURANCE_PROFILE = {
   label: 'SaaS / Critical Digital Infrastructure Readiness',
   company_category: 'AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure provider',
   scope_note: 'Use this profile for Akamai-like providers where AI features may support SaaS, security, network, cloud, or critical digital infrastructure operations. EU AI Act high-risk relevance depends on the actual system role, intended purpose, jurisdiction, and whether the AI system is used as a safety component. Cybersecurity-only components are not automatically safety components.',
+  eu_ai_act_scope: {
+    default_status: 'conditional-readiness',
+    classification_required: true,
+    note: 'Treat EU AI Act mappings as readiness prompts until the assessed AI system has a documented intended purpose, role, jurisdiction, and high-risk classification decision.',
+  },
 };
 
 export const CONTROL_SET = {
@@ -129,6 +134,7 @@ export const TECHNIQUE_CONTROL_MAP = {
     controls: ['LLM-SEC-001', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage', 'Govern'],
     eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    eu_ai_act_scope: 'conditional-readiness',
     iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
     readiness_gaps: [
       'Monitoring and measurement gap: successful or partial prompt injection suggests the control may be ineffective or degrading and should be tracked as evaluation evidence.',
@@ -140,6 +146,7 @@ export const TECHNIQUE_CONTROL_MAP = {
     controls: ['LLM-SEC-001', 'LLM-SEC-003', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-MON-001'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage', 'Govern'],
     eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    eu_ai_act_scope: 'conditional-readiness',
     iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
     readiness_gaps: [
       'External-content trust-boundary gap: retrieved or processed content may be treated as instruction rather than untrusted evidence.',
@@ -151,6 +158,7 @@ export const TECHNIQUE_CONTROL_MAP = {
     controls: ['LLM-SEC-001', 'LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Measure', 'Manage'],
     eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 15', 'Article 72'],
+    eu_ai_act_scope: 'conditional-readiness',
     iso_42001_relevance: ['Clause 9.1', 'Clause 9.2'],
     readiness_gaps: [
       'Interface and parsing gap: message formatting or delimiter handling may allow user-controlled text to appear authoritative.',
@@ -161,6 +169,7 @@ export const TECHNIQUE_CONTROL_MAP = {
     controls: ['LLM-SEC-001', 'LLM-GOV-002', 'LLM-EVAL-001', 'LLM-MON-001'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage'],
     eu_ai_act_relevance: ['Article 9', 'Article 14', 'Article 15', 'Article 17', 'Article 72'],
+    eu_ai_act_scope: 'conditional-readiness',
     iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
     readiness_gaps: [
       'Risk-treatment gap: jailbreak success suggests intended constraints are not reliably enforced by the current prompt, model, or guardrail design.',
@@ -172,6 +181,7 @@ export const TECHNIQUE_CONTROL_MAP = {
     controls: ['LLM-SEC-002', 'LLM-SEC-005', 'LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Map', 'Measure', 'Manage'],
     eu_ai_act_relevance: ['Article 9', 'Article 12', 'Article 15', 'Article 17', 'Article 72'],
+    eu_ai_act_scope: 'conditional-readiness',
     iso_42001_relevance: ['Clause 9.1', 'Clause 9.2', 'Clause 9.3'],
     readiness_gaps: [
       'Evidence-retention gap: prompt or policy leakage should be captured with enough context for review while minimizing sensitive content.',
@@ -190,6 +200,7 @@ export function getTechniqueMapping(techniqueId) {
     controls: ['LLM-EVAL-001', 'LLM-EVAL-002'],
     nist_ai_rmf: ['Measure'],
     eu_ai_act_relevance: [],
+    eu_ai_act_scope: 'not-assessed',
     iso_42001_relevance: ['Clause 9.1'],
     readiness_gaps: ['Evaluation evidence should be reviewed against the AI management system monitoring and measurement process.'],
   };
@@ -201,6 +212,7 @@ export function buildCaseMapping(techniqueId, overrides = {}) {
     mapped_controls: overrides.mapped_controls || base.controls,
     nist_ai_rmf: overrides.nist_ai_rmf || base.nist_ai_rmf,
     eu_ai_act_relevance: overrides.eu_ai_act_relevance || base.eu_ai_act_relevance,
+    eu_ai_act_scope: overrides.eu_ai_act_scope || base.eu_ai_act_scope || ASSURANCE_PROFILE.eu_ai_act_scope.default_status,
     iso_42001_relevance: overrides.iso_42001_relevance || base.iso_42001_relevance,
     readiness_profile: overrides.readiness_profile || ASSURANCE_PROFILE.id,
     readiness_gaps: overrides.readiness_gaps || base.readiness_gaps,

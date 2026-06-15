@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MLCEngine } from '@mlc-ai/web-llm';
 import {
-  Cpu, Play, Square, Plus, Trash2, Download, ChevronRight,
-  AlertTriangle, CheckCircle, XCircle, Minus, Terminal,
-  BookOpen, Search, RefreshCw, Shield, FlaskConical,
-  FileText, ChevronDown, ChevronUp, Info,
+  Play, Square, Plus, Trash2, Download, Terminal,
+  Search, RefreshCw, FlaskConical, FileText, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { PAYLOADS, TECHNIQUES, PRESETS, EVALUATION_CASE_SCHEMA_VERSION, evaluateResponse } from './payloads';
 import { ASSURANCE_PROFILE, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
@@ -118,13 +116,13 @@ export default function App() {
 
   // Findings
   const [findings,       setFindings]       = useState(() => {
-    try { return JSON.parse(localStorage.getItem('rtl-findings') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('elicit-findings') || localStorage.getItem('rtl-findings') || '[]'); } catch { return []; }
   });
   const [activeTab,      setActiveTab]      = useState('lab'); // lab|findings
 
   // Persist findings
   useEffect(() => {
-    localStorage.setItem('rtl-findings', JSON.stringify(findings));
+    localStorage.setItem('elicit-findings', JSON.stringify(findings));
   }, [findings]);
 
   // ── Model loading ──
@@ -183,9 +181,9 @@ export default function App() {
       const result = evaluateResponse(full, victimPrompt, tech);
       setEvalResult(result);
 
-      // Auto-run judge if enabled
+      // Auto-run judge if enabled. Await it so logged findings include judge evidence.
       if (judgeMode && !abortRef.current) {
-        runJudge(full, payload, tech);
+        await runJudge(full, payload, tech);
       }
     } catch (e) {
       setResponse(`\n[ERROR] ${e.message}`);
@@ -304,6 +302,7 @@ export default function App() {
       reviewStatus: evalSummary.reviewStatus,
       reviewerDecision: 'UNREVIEWED',
       reviewerNotes: '',
+      reviewerReviewedAt: null,
       evaluationDisagreement: evalSummary.disagreement,
       evaluationNote: evalSummary.note,
       heuristicVerdict: evalResult.verdict,
@@ -318,6 +317,7 @@ export default function App() {
       mappedControls: mapping.mapped_controls,
       nistAiRmf: mapping.nist_ai_rmf,
       euAiActRelevance: mapping.eu_ai_act_relevance,
+      euAiActScope: mapping.eu_ai_act_scope,
       iso42001Relevance: mapping.iso_42001_relevance,
       readinessProfile: mapping.readiness_profile,
       readinessGaps: mapping.readiness_gaps,
@@ -337,13 +337,17 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rtl-findings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `elicit-findings-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
   };
 
   const exportReport = () => {
     const markdown = generateAssessmentReport(findings);
-    downloadMarkdown(`rtl-assessment-report-${new Date().toISOString().slice(0, 10)}.md`, markdown);
+    downloadMarkdown(`elicit-assessment-report-${new Date().toISOString().slice(0, 10)}.md`, markdown);
+  };
+
+  const updateFinding = (id, patch) => {
+    setFindings(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
   };
 
   // ── Filtered payloads ──
@@ -367,6 +371,7 @@ export default function App() {
         ...(mapping.mapped_controls || []),
         ...(mapping.nist_ai_rmf || []),
         ...(mapping.eu_ai_act_relevance || []),
+        mapping.eu_ai_act_scope,
         ...(mapping.iso_42001_relevance || []),
         ...(mapping.readiness_gaps || []),
       ].filter(Boolean).join(' ').toLowerCase();
@@ -764,15 +769,18 @@ export default function App() {
                   {/* Add to findings */}
                   <button
                     onClick={addFinding}
+                    disabled={judging || (judgeMode && !judgeResult)}
                     style={{
                       padding: '10px 14px', background: C.amberBg, border: `1px solid ${C.amber}40`,
                       color: C.amber, fontSize: 14, fontWeight: 700, letterSpacing: 1,
-                      cursor: 'pointer', borderRadius: 2, flexShrink: 0,
+                      cursor: judging || (judgeMode && !judgeResult) ? 'not-allowed' : 'pointer',
+                      opacity: judging || (judgeMode && !judgeResult) ? 0.45 : 1,
+                      borderRadius: 2, flexShrink: 0,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                     }}
                   >
                     <Plus size={14} />
-                    LOG
+                    {judging ? 'WAIT' : 'LOG'}
                   </button>
                   </div>
                   {judgeMode && judgeResult && summarizeEvaluation(evalResult, judgeResult).disagreement && (
@@ -830,8 +838,13 @@ export default function App() {
                 No findings logged yet. Execute attacks in the lab and log successful findings.
               </div>
             ) : (
-              findings.map((f, i) => (
-                <FindingCard key={f.id} finding={f} onDelete={() => setFindings(p => p.filter(x => x.id !== f.id))} />
+              findings.map((f) => (
+                <FindingCard
+                  key={f.id}
+                  finding={f}
+                  onUpdate={(patch) => updateFinding(f.id, patch)}
+                  onDelete={() => setFindings(p => p.filter(x => x.id !== f.id))}
+                />
               ))
             )}
           </div>
@@ -842,10 +855,10 @@ export default function App() {
 }
 
 // ── Finding Card ──────────────────────────────────────────────────────────────
-function FindingCard({ finding: f, onDelete }) {
+function FindingCard({ finding: f, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const vc = f.verdict === 'SUCCESS' ? C.red : f.verdict === 'PARTIAL' ? C.amber : f.verdict === 'REVIEW' ? C.warmDim : C.coolDim;
-  const C_mono = '"JetBrains Mono", monospace';
+  const reviewerDecision = f.reviewerDecision || 'UNREVIEWED';
 
   return (
     <div style={{
@@ -863,6 +876,7 @@ function FindingCard({ finding: f, onDelete }) {
             <span style={{ fontSize: 12, color: C.text2, background: C.hover, padding: '1px 6px', borderRadius: 2, border: `1px solid ${C.border}` }}>{f.techniqueId}</span>
             {f.owasp && <span style={{ fontSize: 12, color: C.text2, padding: '1px 6px', background: C.hover, borderRadius: 2 }}>{f.owasp}</span>}
             {f.reviewStatus && f.reviewStatus !== 'AUTO_TRIAGED' && <span style={{ fontSize: 12, color: f.reviewStatus === 'REVIEW_REQUIRED' ? C.amber : C.warmDim, padding: '1px 6px', background: C.hover, borderRadius: 2 }}>{f.reviewStatus}</span>}
+            <span style={{ fontSize: 12, color: reviewerDecision === 'CONFIRMED' ? C.red : reviewerDecision === 'FALSE_POSITIVE' ? C.coolDim : C.text2, padding: '1px 6px', background: C.hover, borderRadius: 2 }}>{reviewerDecision}</span>
             <span style={{ fontSize: 13, color: C.text3, marginLeft: 'auto' }}>{new Date(f.timestamp).toLocaleString()}</span>
           </div>
           <div style={{ fontSize: 15, color: C.text1, fontWeight: 600, marginBottom: 3 }}>{f.payloadName}</div>
@@ -875,6 +889,46 @@ function FindingCard({ finding: f, onDelete }) {
 
       {expanded && (
         <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 220, flex: '0 1 280px' }}>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>REVIEWER DECISION</div>
+              <select
+                value={reviewerDecision}
+                onChange={e => onUpdate({ reviewerDecision: e.target.value, reviewerReviewedAt: new Date().toISOString() })}
+                style={{
+                  width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`,
+                  color: C.text1, fontSize: 14, padding: '5px 8px', borderRadius: 2,
+                }}
+              >
+                <option value="UNREVIEWED">UNREVIEWED</option>
+                <option value="CONFIRMED">CONFIRMED</option>
+                <option value="NEEDS_RETEST">NEEDS_RETEST</option>
+                <option value="FALSE_POSITIVE">FALSE_POSITIVE</option>
+                <option value="ACCEPTED_RISK">ACCEPTED_RISK</option>
+              </select>
+            </div>
+            <div style={{ flex: '1 1 320px' }}>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>REVIEWER NOTES</div>
+              <textarea
+                value={f.reviewerNotes || ''}
+                onChange={e => onUpdate({ reviewerNotes: e.target.value, notes: e.target.value })}
+                placeholder="Add reviewer rationale, retest result, or disposition..."
+                rows={2}
+                style={{
+                  width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`,
+                  color: C.text1, fontSize: 14, padding: '6px 8px', lineHeight: 1.45,
+                  resize: 'vertical', borderRadius: 2,
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {f.runId && <span style={{ fontSize: 12, color: C.text3, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>RUN {f.runId}</span>}
+            {f.caseId && <span style={{ fontSize: 12, color: C.text3, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>CASE {f.caseId} · {f.caseVersion || 'unversioned'}</span>}
+            {f.reviewerReviewedAt && <span style={{ fontSize: 12, color: C.text3, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>REVIEWED {new Date(f.reviewerReviewedAt).toLocaleString()}</span>}
+            {f.iso42001Relevance?.length > 0 && <span style={{ fontSize: 12, color: C.text3, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>ISO {f.iso42001Relevance.join(', ')}</span>}
+            {f.euAiActRelevance?.length > 0 && <span style={{ fontSize: 12, color: C.text3, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>EU {f.euAiActRelevance.join(', ')}</span>}
+          </div>
           <div>
             <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>PAYLOAD</div>
             <div style={{ fontSize: 15, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: C.mono }}>{f.payload}</div>
@@ -883,6 +937,14 @@ function FindingCard({ finding: f, onDelete }) {
             <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>RESPONSE EXCERPT</div>
             <div style={{ fontSize: 15, color: C.text1, background: C.bg, padding: '8px 10px', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: C.mono }}>{f.response}</div>
           </div>
+          {f.readinessGaps?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>READINESS GAPS</div>
+              <div style={{ fontSize: 14, color: C.text2, background: C.bg, padding: '8px 10px', lineHeight: 1.55 }}>
+                {f.readinessGaps.map((gap, idx) => <div key={idx}>- {gap}</div>)}
+              </div>
+            </div>
+          )}
           {f.evaluationDisagreement && (
             <div style={{ background: C.amberBg, border: `1px solid ${C.amber}40`, padding: '8px 10px', borderRadius: 2 }}>
               <div style={{ fontSize: 13, color: C.amber, letterSpacing: 1, marginBottom: 4, fontWeight: 700 }}>EVALUATION DISAGREEMENT</div>

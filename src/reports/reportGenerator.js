@@ -26,7 +26,7 @@ const frameworkList = (finding = {}) => {
   if (finding.owasp) lines.push(`- OWASP LLM Top 10: ${finding.owasp} — ${FRAMEWORK_REFERENCES.owasp[finding.owasp] || 'Mapped risk category'}`);
   (finding.nistAiRmf || finding.nist_ai_rmf || []).forEach(fn => lines.push(`- NIST AI RMF: ${fn}`));
   (finding.iso42001Relevance || finding.iso_42001_relevance || []).forEach(clause => lines.push(`- ISO/IEC 42001 relevance: ${clause} — ${FRAMEWORK_REFERENCES.iso_42001[clause] || 'Relevant AI management system performance-evaluation evidence'}`));
-  (finding.euAiActRelevance || finding.eu_ai_act_relevance || []).forEach(article => lines.push(`- EU AI Act readiness relevance: ${article} — ${FRAMEWORK_REFERENCES.eu_ai_act[article] || 'Relevant obligation if system is in scope'}`));
+  (finding.euAiActRelevance || finding.eu_ai_act_relevance || []).forEach(article => lines.push(`- EU AI Act readiness relevance (${finding.euAiActScope || finding.eu_ai_act_scope || ASSURANCE_PROFILE.eu_ai_act_scope.default_status}): ${article} — ${FRAMEWORK_REFERENCES.eu_ai_act[article] || 'Relevant obligation if system is in scope'}`));
   return lines.length ? lines.join('\n') : '- None mapped';
 };
 
@@ -44,6 +44,7 @@ export function buildFindingMarkdown(finding) {
 **Verdict:** ${finding.verdict || 'Unknown'}<br>
 **Review Status:** ${finding.reviewStatus || 'Not recorded'}<br>
 **Reviewer Decision:** ${finding.reviewerDecision || 'UNREVIEWED'}<br>
+**Reviewer Reviewed At:** ${finding.reviewerReviewedAt || finding.reviewer_reviewed_at || 'Not recorded'}<br>
 **Verdict Source:** ${finding.finalVerdictSource || 'Not recorded'}<br>
 **Test Case:** ${finding.caseId || finding.payloadId || 'custom'}<br>
 **Case Version:** ${finding.caseVersion || finding.case_version || 'Not recorded'}<br>
@@ -102,8 +103,10 @@ ${truncate(finding.responseFull || finding.response || '', 2500)}
 
 export function generateAssessmentReport(findings = [], metadata = {}) {
   const date = new Date().toISOString();
-  const successful = findings.filter(f => ['SUCCESS', 'PARTIAL'].includes(f.verdict)).length;
-  const controlIds = [...new Set(findings.flatMap(f => f.mappedControls || f.mapped_controls || []))];
+  const activeFindings = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) !== 'FALSE_POSITIVE');
+  const successful = activeFindings.filter(f => ['SUCCESS', 'PARTIAL'].includes(f.verdict)).length;
+  const falsePositive = findings.length - activeFindings.length;
+  const controlIds = [...new Set(activeFindings.flatMap(f => f.mappedControls || f.mapped_controls || []))];
   const controls = controlIds.map(id => CONTROL_SET[id]).filter(Boolean);
 
   return `# LLM Adversarial Evaluation Report
@@ -117,10 +120,11 @@ Mitigation Set Version: ${MITIGATION_SET_VERSION}
 
 ## Executive Summary
 
-This report summarizes locally executed adversarial evaluation cases against one or more browser-hosted LLMs. The lab treats findings as **lightweight evidence indicators**: a successful or partial adversarial result indicates a potential control weakness that should be reviewed, reproduced, remediated, and retested. Framework mappings are provided for traceability and do not constitute legal, audit, or certification conclusions.
+This report summarizes locally executed adversarial evaluation cases against one or more browser-hosted LLMs. The lab treats findings as **evidence indicators**: a successful or partial adversarial result indicates a potential control weakness that should be reviewed, reproduced, remediated, and retested. Framework mappings are provided for traceability and do not constitute legal, audit, or certification conclusions.
 
 - Findings logged: ${findings.length}
-- Successful or partial findings: ${successful}
+- Successful or partial findings, excluding reviewer-marked false positives: ${successful}
+- Reviewer-marked false positives: ${falsePositive}
 - Unique impacted controls: ${controlIds.length}
 
 ## Framework Readiness Lens
@@ -128,6 +132,8 @@ This report summarizes locally executed adversarial evaluation cases against one
 This report uses the **${ASSURANCE_PROFILE.label}** profile for AI-enabled SaaS, cybersecurity, edge, cloud, or critical digital infrastructure providers. ISO/IEC 42001 references focus on Clause 9 performance-evaluation evidence: monitoring and measurement, internal audit, and management review. EU AI Act references are high-risk readiness indicators only; classification depends on the specific AI system, intended purpose, jurisdiction, and whether it is used as a safety component in critical digital infrastructure or another high-risk category.
 
 Profile scope note: ${ASSURANCE_PROFILE.scope_note}
+
+EU AI Act scope status: ${ASSURANCE_PROFILE.eu_ai_act_scope.default_status}. ${ASSURANCE_PROFILE.eu_ai_act_scope.note}
 
 ## Scope and Methodology
 
@@ -137,7 +143,7 @@ The evaluation workflow is:
 2. Run a structured adversarial evaluation case.
 3. Capture the model response and local heuristic result.
 4. Optionally run a separate local judge model.
-5. Log a lightweight finding record with response excerpts, evaluator outputs, control mapping, and framework relevance.
+5. Log an evidence record with response excerpts, evaluator outputs, reviewer disposition, control mapping, and framework relevance.
 
 ## Impacted Control Summary
 

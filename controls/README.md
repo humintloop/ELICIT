@@ -1,6 +1,6 @@
 # ELICIT LLM SaaS Control Set
 
-This directory contains a starter, project-defined control set for the AI Assurance Lab.
+This directory contains a starter, project-defined control set for ELICIT.
 It is intended to show how adversarial LLM evaluation results can map to SaaS-ready security and assurance controls.
 
 The controls are **not** an official framework. They are deliberately replaceable. When organization-specific AI controls are available, they should supersede this draft.
@@ -8,8 +8,8 @@ The controls are **not** an official framework. They are deliberately replaceabl
 ## Files
 
 - `llm-saas-control-set.yaml` - draft control catalog with objectives, evidence examples, test methods, and retest guidance.
-- `control-mapping-matrix.md` - traceability matrix connecting controls to MITRE ATLAS and OWASP LLM Top 10 references.
-- `example-mapping.json` - lightweight machine-readable example from the MVP.
+- `control-mapping-matrix.md` - traceability matrix connecting controls to MITRE ATLAS, OWASP LLM Top 10, ISO/IEC 42001 section 9, and EU AI Act readiness references.
+- `example-mapping.json` - lightweight machine-readable example from the initial MVP.
 - `examples/` - worked examples for prompt injection, system prompt leakage, and indirect prompt injection/RAG.
 - `../docs/source-ledger.md` - source ledger documenting what is official, inferred, and project-defined.
 
