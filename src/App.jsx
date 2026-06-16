@@ -514,8 +514,8 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', height: '100vh',
+    <div className="app-root" style={{
+      display: 'flex', flexDirection: 'column', height: '100dvh', minHeight: '100vh',
       background: `
         linear-gradient(180deg, rgba(200,120,68,.04), transparent 210px),
         linear-gradient(90deg, rgba(101,113,137,.06) 1px, transparent 1px),
@@ -642,11 +642,58 @@ export default function App() {
             display: none;
           }
         }
+        @media (max-width: 520px) {
+          .app-header {
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px;
+          }
+          .brand-lockup {
+            gap: 10px;
+            max-width: calc(100% - 130px);
+          }
+          .brand-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+          }
+          .brand-word {
+            min-width: 0;
+          }
+          .brand-title {
+            font-size: 24px;
+            letter-spacing: 2px;
+          }
+          .brand-subtitle {
+            font-size: 8px;
+            letter-spacing: .8px;
+          }
+          .tab-nav button {
+            padding: 5px 8px !important;
+            font-size: 12px !important;
+            letter-spacing: .5px !important;
+          }
+          .model-bar {
+            gap: 6px;
+            min-width: 0;
+            flex-wrap: wrap;
+          }
+          .model-bar > span {
+            white-space: normal !important;
+          }
+        }
         @media (max-width: 760px) {
+          .app-root {
+            overflow-y: auto !important;
+            height: 100dvh !important;
+          }
           .next-action-bar {
             align-items: stretch !important;
             flex-direction: column !important;
             padding: 12px !important;
+          }
+          .next-action-copy > div:last-child {
+            white-space: normal !important;
           }
           .next-action-controls {
             align-items: stretch !important;
@@ -660,11 +707,13 @@ export default function App() {
           .workflow-strip {
             align-items: stretch !important;
             overflow-x: auto;
+            flex-wrap: nowrap !important;
             padding: 8px 12px !important;
+            scrollbar-width: thin;
           }
           .workflow-strip > button {
             flex: 0 0 auto;
-            min-width: 220px;
+            min-width: 186px;
             justify-content: flex-start;
           }
           .workflow-summary {
@@ -675,17 +724,20 @@ export default function App() {
           }
           .lab-shell {
             flex-direction: column !important;
-            overflow-y: auto !important;
+            flex: 0 0 auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
           }
           .lab-sidebar {
             width: 100% !important;
-            min-height: 42vh;
-            max-height: 48vh;
+            height: 72vh !important;
+            min-height: 320px !important;
+            max-height: 560px !important;
             border-right: none !important;
             border-bottom: 1px solid ${C.border} !important;
           }
           .lab-main {
-            min-height: 58vh;
+            min-height: min(620px, 90vh);
             overflow: visible !important;
           }
           .payload-toolbar {
@@ -707,6 +759,16 @@ export default function App() {
           }
           .eval-detail-row {
             flex-direction: column !important;
+          }
+        }
+        @media (max-height: 640px) {
+          .workflow-strip {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+          }
+          .workflow-strip > button {
+            flex: 0 0 auto;
+            min-width: 186px;
           }
         }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
