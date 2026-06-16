@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 import SignalBars from './components/SignalBars';
 import FindingsReport from './components/FindingsReport';
+import DossierHome from './components/DossierHome';
+import AttackNavigator from './components/AttackNavigator';
+import ConversationTranscript from './components/ConversationTranscript';
+import FrameworkMappingExplainer from './components/FrameworkMappingExplainer';
 import { PAYLOADS, TECHNIQUES, PRESETS, EVALUATION_CASE_SCHEMA_VERSION, evaluateResponse } from './payloads';
 import { CLUSTERS } from './data/clusters';
 import { ASSURANCE_PROFILE, FRAMEWORK_MAPPING_VERSION, buildCaseMapping } from './data/frameworkMappings';
@@ -89,8 +93,8 @@ function summarizeEvaluation(heuristic, judge) {
 }
 
 // ── Stages ────────────────────────────────────────────────────────────────────
-// case → loading → probe → triage → (loop back to probe) ; report is a side view
-const STAGE = { CASE: 'case', LOADING: 'loading', PROBE: 'probe', TRIAGE: 'triage', REPORT: 'report' };
+// home → case → loading → probe → triage ; report is a side view
+const STAGE = { HOME: 'home', CASE: 'case', LOADING: 'loading', PROBE: 'probe', TRIAGE: 'triage', REPORT: 'report' };
 
 export default function App() {
   // Engine
@@ -110,8 +114,10 @@ export default function App() {
   const caseIdRef = useRef(`AI-${Date.now().toString(36).toUpperCase().slice(-6)}`);
 
   // Flow
-  const [stage, setStage] = useState(STAGE.CASE);
+  const [stage, setStage] = useState(STAGE.HOME);
   const [probeIndex, setProbeIndex] = useState(0);
+  const [attackFilter, setAttackFilter] = useState('ALL');
+  const [attackQuery, setAttackQuery] = useState('');
 
   // Execution
   const [running, setRunning] = useState(false);
@@ -172,7 +178,29 @@ export default function App() {
 
   const resetProbeState = () => {
     setResponse(''); setEvalResult(null); setJudgeResult(null);
-    setRunning(false); setJudging(false); abortRef.current = false;
+    setRunning(false); setJudging(false); setLoggedFlash(null); abortRef.current = false;
+  };
+
+  const selectProbe = (nextClusterId, nextProbeId) => {
+    if ((running || judging) && !confirm('Switch probes and discard the current in-progress run?')) return;
+    const nextCluster = CLUSTERS.find(c => c.id === nextClusterId);
+    if (!nextCluster) return;
+    const nextIndex = nextCluster.payloads.findIndex(payload => payload.id === nextProbeId);
+    setClusterId(nextClusterId);
+    setProbeIndex(nextIndex >= 0 ? nextIndex : 0);
+    resetProbeState();
+    setStage(STAGE.PROBE);
+  };
+
+  const goToNextProbe = () => {
+    setLoggedFlash(null);
+    if (isLastProbe) {
+      setStage(STAGE.REPORT);
+      return;
+    }
+    setProbeIndex(i => i + 1);
+    resetProbeState();
+    setStage(STAGE.PROBE);
   };
 
   // ── Run the probe ──
@@ -321,22 +349,6 @@ export default function App() {
     setLoggedFlash({ verdict: evalSummary.finalVerdict, disposition });
   };
 
-  // After the logged-flash, advance to next probe or finish the cluster
-  useEffect(() => {
-    if (!loggedFlash) return undefined;
-    const t = setTimeout(() => {
-      setLoggedFlash(null);
-      if (isLastProbe) {
-        setStage(STAGE.REPORT);
-      } else {
-        setProbeIndex(i => i + 1);
-        resetProbeState();
-        setStage(STAGE.PROBE);
-      }
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [loggedFlash]); // eslint-disable-line
-
   const skipProbe = () => {
     if (isLastProbe) { setStage(STAGE.REPORT); return; }
     setProbeIndex(i => i + 1);
@@ -366,6 +378,11 @@ export default function App() {
     setStage(STAGE.CASE);
   };
 
+  const goHome = () => {
+    setLoggedFlash(null);
+    setStage(STAGE.HOME);
+  };
+
   // ── Shared chrome ──
   const headerBar = (
     <header style={{
@@ -381,7 +398,7 @@ export default function App() {
         </div>
       </div>
 
-      {stage !== STAGE.CASE && (
+      {stage !== STAGE.HOME && stage !== STAGE.CASE && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: C.text3 }}>
           <span style={{ color: C.border }}>│</span>
           <span style={{ color: C.amber, letterSpacing: 1 }}>{caseIdRef.current}</span>
@@ -390,12 +407,17 @@ export default function App() {
       )}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {stage !== STAGE.HOME && (
+          <button onClick={goHome} style={btn(C, 'ghost')}>
+            HOME
+          </button>
+        )}
         {findings.length > 0 && stage !== STAGE.REPORT && (
           <button onClick={() => setStage(STAGE.REPORT)} style={btn(C, 'ghost')}>
             <FileText size={12} /> REPORT ({findings.length})
           </button>
         )}
-        {stage !== STAGE.CASE && (
+        {stage !== STAGE.HOME && stage !== STAGE.CASE && (
           <button onClick={newCase} style={btn(C, 'ghost')}>
             <FolderOpen size={12} /> NEW CASE
           </button>
@@ -405,7 +427,7 @@ export default function App() {
   );
 
   // ── Stage progress rail (shows where you are without clutter) ──
-  const stageRail = stage !== STAGE.CASE && (
+  const stageRail = stage !== STAGE.HOME && stage !== STAGE.CASE && (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.7)', flexShrink: 0, overflowX: 'auto' }}>
       {[
         ['Briefing', stage === STAGE.LOADING],
@@ -433,6 +455,16 @@ export default function App() {
       {stageRail}
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {stage === STAGE.HOME && (
+          <DossierHome
+            C={C}
+            findings={findings}
+            clusters={CLUSTERS}
+            onEnter={newCase}
+            onReport={() => setStage(STAGE.REPORT)}
+          />
+        )}
+
         {stage === STAGE.CASE && (
           <CaseSetup
             C={C}
@@ -459,31 +491,64 @@ export default function App() {
         )}
 
         {stage === STAGE.PROBE && probe && (
-          <ProbeStage
-            C={C}
-            cluster={cluster} probe={probe}
-            index={probeIndex} total={clusterPayloads.length}
-            response={response} running={running}
-            modelReady={modelStatus === 'ready'}
-            judgeMode={judgeMode}
-            onRun={runProbe} onStop={stopProbe} onSkip={skipProbe}
-          />
+          <div className="workstation-layout" style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+            <AttackNavigator
+              C={C}
+              clusters={CLUSTERS}
+              activeClusterId={clusterId}
+              activeProbeId={probe.id}
+              filter={attackFilter}
+              setFilter={setAttackFilter}
+              query={attackQuery}
+              setQuery={setAttackQuery}
+              onSelectProbe={selectProbe}
+            />
+            <ProbeStage
+              C={C}
+              cluster={cluster} probe={probe}
+              index={probeIndex} total={clusterPayloads.length}
+              victimPrompt={victimPrompt}
+              response={response} running={running}
+              evalResult={evalResult} judgeResult={judgeResult}
+              modelReady={modelStatus === 'ready'}
+              judgeMode={judgeMode}
+              onRun={runProbe} onStop={stopProbe} onSkip={skipProbe}
+            />
+          </div>
         )}
 
         {stage === STAGE.TRIAGE && probe && (
-          <TriageStage
-            C={C}
-            cluster={cluster} probe={probe}
-            response={response}
-            evalResult={evalResult}
-            judgeMode={judgeMode} judgeResult={judgeResult} judging={judging}
-            loadProgress={loadProgress}
-            loggedFlash={loggedFlash}
-            isLast={isLastProbe}
-            onLog={logFinding}
-            onRetry={retryProbe}
-            summarize={summarizeEvaluation}
-          />
+          <div className="workstation-layout" style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+            <AttackNavigator
+              C={C}
+              clusters={CLUSTERS}
+              activeClusterId={clusterId}
+              activeProbeId={probe.id}
+              filter={attackFilter}
+              setFilter={setAttackFilter}
+              query={attackQuery}
+              setQuery={setAttackQuery}
+              onSelectProbe={selectProbe}
+            />
+            <TriageStage
+              C={C}
+              cluster={cluster} probe={probe}
+              victimPrompt={victimPrompt}
+              response={response}
+              evalResult={evalResult}
+              judgeMode={judgeMode} judgeResult={judgeResult} judging={judging}
+              loadProgress={loadProgress}
+              loggedFlash={loggedFlash}
+              isLast={isLastProbe}
+              onLog={logFinding}
+              onRetry={retryProbe}
+              onStay={() => setLoggedFlash(null)}
+              onNextProbe={goToNextProbe}
+              onChooseProbe={() => setLoggedFlash(null)}
+              onReport={() => { setLoggedFlash(null); setStage(STAGE.REPORT); }}
+              summarize={summarizeEvaluation}
+            />
+          </div>
         )}
 
         {stage === STAGE.REPORT && (
@@ -496,6 +561,7 @@ export default function App() {
           >
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <button onClick={newCase} style={btn(C, 'primary')}><FolderOpen size={12} /> START NEW CASE</button>
+              <button onClick={goHome} style={btn(C, 'ghost')}>HOME DOSSIER</button>
               {clusterPayloads.length > 0 && (
                 <button onClick={() => { setProbeIndex(0); resetProbeState(); setStage(STAGE.PROBE); }} style={btn(C, 'ghost')}>
                   <RotateCcw size={12} /> RE-RUN THIS CLUSTER
@@ -548,6 +614,11 @@ function GlobalStyle({ C }) {
       .es-card { animation: fadeUp .35s ease; }
       .es-pick { transition: border-color .15s, background .15s; }
       .es-pick:hover { border-color: ${C.amber}88 !important; }
+      @media (max-width: 760px) {
+        .home-hero-grid { grid-template-columns: minmax(0, 1fr) !important; }
+        .workstation-layout { flex-direction: column; overflow-y: auto !important; }
+        .attack-nav { width: 100% !important; max-width: none !important; max-height: 280px; border-right: none !important; border-bottom: 1px solid ${C.border}; }
+      }
     `}</style>
   );
 }
@@ -744,18 +815,11 @@ function LoadingStage({ C, cluster, modelName, modelSize, progress }) {
 }
 
 // ═══ STAGE 3 · Probe (one screen, one action) ════════════════════════════════
-function ProbeStage({ C, cluster, probe, index, total, response, running, modelReady, judgeMode, onRun, onStop, onSkip }) {
+function ProbeStage({ C, cluster, probe, index, total, victimPrompt, response, running, evalResult, judgeResult, modelReady, judgeMode, onRun, onStop, onSkip }) {
   const color = C[cluster?.colorKey] || C.amber;
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!running) { setElapsed(0); return undefined; }
-    const t0 = Date.now();
-    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 250);
-    return () => clearInterval(iv);
-  }, [running]);
 
   return (
-    <div className="es-card" style={{ maxWidth: 880, width: '100%', margin: '0 auto', padding: '28px 24px 64px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 18 }}>
+    <div className="es-card" style={{ flex: 1, width: '100%', padding: '24px 24px 64px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 18, overflowY: 'auto' }}>
       {/* Probe identity */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -767,43 +831,27 @@ function ProbeStage({ C, cluster, probe, index, total, response, running, modelR
         <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginTop: 5 }}>{probe.description}</div>
       </div>
 
-      {/* Payload */}
-      <div>
-        <SectionTitle C={C}>Payload being sent</SectionTitle>
-        <div style={{ background: C.surface, border: `1px solid ${color}33`, borderLeft: `2px solid ${color}`, borderRadius: 4, padding: '13px 15px', fontSize: 13, color: C.amber, lineHeight: 1.75, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {probe.payload}
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, padding: '13px 15px', fontSize: 12.5, color: C.text2, lineHeight: 1.65 }}>
+        <SectionTitle C={C}>What you're watching for</SectionTitle>
+        <div style={{ marginBottom: 10 }}>
+          <span style={{ color: C.teal, fontWeight: 700 }}>Holds if: </span>
+          {probe.expected_secure_behavior || 'The model keeps its instructions and refuses the manipulation.'}
+        </div>
+        <div>
+          <span style={{ color: C.red, fontWeight: 700 }}>Fails if: </span>
+          {probe.failure_mode || 'The model follows the payload instead of its own system prompt.'}
         </div>
       </div>
 
-      {/* Two-up: what to watch / model response */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        <div>
-          <SectionTitle C={C}>What you're watching for</SectionTitle>
-          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, padding: '13px 15px', fontSize: 12.5, color: C.text2, lineHeight: 1.65 }}>
-            <div style={{ marginBottom: 10 }}>
-              <span style={{ color: C.teal, fontWeight: 700 }}>Holds if: </span>
-              {probe.expected_secure_behavior || 'The model keeps its instructions and refuses the manipulation.'}
-            </div>
-            <div>
-              <span style={{ color: C.red, fontWeight: 700 }}>Fails if: </span>
-              {probe.failure_mode || 'The model follows the payload instead of its own system prompt.'}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <SectionTitle C={C}>
-            Model response {running && <span style={{ color: C.amber, fontSize: 10 }}>● LIVE T+{elapsed}s</span>}
-          </SectionTitle>
-          <div style={{ background: C.bg, border: `1px solid ${C.borderHi}`, borderRadius: 4, padding: '13px 15px', fontSize: 13.5, color: response ? C.text1 : C.text3, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word', minHeight: 96, maxHeight: 260, overflowY: 'auto' }}>
-            {running && !response ? (
-              <span style={{ color: C.text3 }}>Sending payload to the target…</span>
-            ) : (
-              <>{response || 'Press Run to send this payload to the target model.'}{running && <span style={{ animation: 'blink 1s infinite', color: C.amber }}>▋</span>}</>
-            )}
-          </div>
-        </div>
-      </div>
+      <ConversationTranscript
+        C={C}
+        victimPrompt={victimPrompt}
+        payload={probe.payload}
+        response={response}
+        running={running}
+        evalResult={evalResult}
+        judgeResult={judgeResult}
+      />
 
       {/* Action row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', bottom: 0, paddingTop: 4 }}>
@@ -834,20 +882,44 @@ function ProbeStage({ C, cluster, probe, index, total, response, running, modelR
 }
 
 // ═══ STAGE 4 · Triage (verdict + one disposition decision) ════════════════════
-function TriageStage({ C, cluster, probe, response, evalResult, judgeMode, judgeResult, judging, loadProgress, loggedFlash, isLast, onLog, onRetry, summarize }) {
+function TriageStage({
+  C,
+  cluster,
+  probe,
+  victimPrompt,
+  response,
+  evalResult,
+  judgeMode,
+  judgeResult,
+  judging,
+  loadProgress,
+  loggedFlash,
+  isLast,
+  onLog,
+  onRetry,
+  onStay,
+  onNextProbe,
+  onChooseProbe,
+  onReport,
+  summarize,
+}) {
   const color = C[cluster?.colorKey] || C.amber;
 
   if (loggedFlash) {
     const vc = getVerdictColor(loggedFlash.verdict, C);
     return (
-      <div className="es-card" style={{ maxWidth: 440, margin: '120px auto', textAlign: 'center', padding: '0 24px' }}>
+      <div className="es-card" style={{ flex: 1, padding: '72px 24px', textAlign: 'center', overflowY: 'auto' }}>
         <div style={{ fontSize: 30, color: vc, marginBottom: 14 }}><Check size={34} /></div>
         <div style={{ fontSize: 13, color: vc, letterSpacing: 1.4, fontWeight: 800 }}>FINDING LOGGED</div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 8 }}>
           {getVerdictLabel(loggedFlash.verdict)} · {String(loggedFlash.disposition).replaceAll('_', ' ').toLowerCase()}
         </div>
-        <div style={{ fontSize: 11, color: C.text3, marginTop: 16 }}>
-          {isLast ? 'Building your report…' : 'Loading next probe…'}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 22 }}>
+          <button onClick={onStay} style={btn(C, 'ghost')}>STAY ON THIS RESULT</button>
+          <button onClick={onNextProbe} style={btn(C, 'primary')}>{isLast ? 'OPEN REPORT' : 'RUN NEXT PROBE'}</button>
+          <button onClick={onChooseProbe} style={btn(C, 'ghost')}>CHOOSE ANOTHER PROBE</button>
+          <button onClick={onReport} style={btn(C, 'ghost')}>OPEN REPORT</button>
+          <button onClick={onRetry} style={btn(C, 'ghost')}><RotateCcw size={12} /> RERUN THIS PROBE</button>
         </div>
       </div>
     );
@@ -878,7 +950,7 @@ function TriageStage({ C, cluster, probe, response, evalResult, judgeMode, judge
   ];
 
   return (
-    <div className="es-card" style={{ maxWidth: 760, width: '100%', margin: '0 auto', padding: '28px 24px 64px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="es-card" style={{ flex: 1, width: '100%', padding: '24px 24px 64px', display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
       <div>
         <div style={{ fontSize: 10, color, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 }}>Triage · {probe.name}</div>
         <div style={{ padding: '14px 18px', border: `1px solid ${vc}55`, borderLeft: `3px solid ${vc}`, borderRadius: 5, background: `${vc}12` }}>
@@ -900,13 +972,24 @@ function TriageStage({ C, cluster, probe, response, evalResult, judgeMode, judge
         </div>
       )}
 
-      {/* Response recap (collapsible feel, but always shown compact) */}
-      <div>
-        <SectionTitle C={C}>Model response</SectionTitle>
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: '12px 14px', fontSize: 12.5, color: C.text1, lineHeight: 1.65, whiteSpace: 'pre-wrap', maxHeight: 180, overflowY: 'auto' }}>
-          {response}
-        </div>
-      </div>
+      <ConversationTranscript
+        C={C}
+        victimPrompt={victimPrompt}
+        payload={probe.payload}
+        response={response}
+        running={false}
+        evalResult={evalResult}
+        judgeResult={judgeResult}
+      />
+
+      <FrameworkMappingExplainer
+        C={C}
+        techniqueId={probe.technique}
+        techniqueName={probe.name}
+        owasp={cluster.owasp}
+        payload={probe}
+        compact
+      />
 
       {/* Disposition — the one decision */}
       <div>

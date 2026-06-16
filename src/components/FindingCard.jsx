@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getVerdictColor, getVerdictLabel } from './VerdictBanner';
 import { getMitigationMapping } from '../data/mitigationMappings';
+import FrameworkMappingExplainer from './FrameworkMappingExplainer';
 
 const dispositionHelp = {
   UNREVIEWED: 'Not reviewed by a human yet',
@@ -82,10 +83,14 @@ export default function FindingCard({ C, finding: f, onUpdate, onDelete }) {
               {frameworkOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
             {frameworkOpen && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '0 9px 9px' }}>
-                {f.iso42001Relevance?.length > 0 && <span style={{ fontSize: 12, color: C.text3, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>ISO {f.iso42001Relevance.join(', ')}</span>}
-                {f.euAiActRelevance?.length > 0 && <span style={{ fontSize: 12, color: C.text3, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>EU {f.euAiActRelevance.join(', ')}</span>}
-                {f.mappedControls?.map((control, idx) => <span key={idx} style={{ fontSize: 12, color: C.text3, border: `1px solid ${C.border}`, padding: '2px 6px', borderRadius: 2 }}>{control}</span>)}
+              <div style={{ padding: '0 9px 9px' }}>
+                <FrameworkMappingExplainer
+                  C={C}
+                  techniqueId={f.techniqueId}
+                  techniqueName={f.techniqueName}
+                  owasp={f.owasp}
+                  finding={f}
+                />
               </div>
             )}
           </div>
