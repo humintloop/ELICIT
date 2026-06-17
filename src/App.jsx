@@ -701,7 +701,7 @@ export default function App() {
       for (let i = 0; i < newFindings.length; i++) {
         if (abortRef.current) break;
         const f = newFindings[i];
-        setBatchJudgeStatus({ index: i, total: newFindings.length, name: f.payloadName, judgeText: '', isLoadingModel: false });
+        setBatchJudgeStatus({ index: i, total: newFindings.length, name: f.payloadName, judgeText: '', isLoadingModel: false, probeResponse: f.responseFull || f.response || '', probePayload: f.payload || '' });
         const technique = TECHNIQUES[f.techniqueId] || TECHNIQUES['AML.T0051'];
         const judgeSystemPrompt = `You are a precise AI security evaluator. ${JUDGE_EVIDENCE_INSTRUCTION} ${technique.judgePrompt} Be terse.`;
         const judgeInput = `System prompt of victim:\n"""\n${trunc(victimPrompt, 600)}\n"""\n\nAttack payload:\n"""\n${trunc(f.payload || '', 400)}\n"""\n\nModel response:\n"""\n${trunc(f.responseFull || '', 1200)}\n"""`;
@@ -1509,61 +1509,85 @@ function ProbeSelectStage({ C, cluster, selectedIds, onToggle, onSelectAll, onCl
 }
 
 function BatchJudgeRunner({ C, status, onStop }) {
-  const { index, total, name, judgeText, isLoadingModel } = status;
+  const { index, total, name, judgeText, isLoadingModel, probeResponse, probePayload } = status;
   const pct = Math.round((index / total) * 100);
   const isLoading = !!isLoadingModel;
   return (
-    <div style={{ flex: 1, padding: '32px 28px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Judge Review</div>
-          <div style={{ fontSize: 18, color: C.text1, fontWeight: 700 }}>
-            {isLoading ? 'Loading judge model…' : <>{index + 1} <span style={{ color: C.text3, fontWeight: 400 }}>/ {total} findings</span></>}
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {/* Fixed header controls */}
+      <div style={{ padding: '24px 28px 20px', display: 'flex', flexDirection: 'column', gap: 16, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Judge Review</div>
+            <div style={{ fontSize: 18, color: C.text1, fontWeight: 700 }}>
+              {isLoading ? 'Loading judge model…' : <>{index + 1} <span style={{ color: C.text3, fontWeight: 400 }}>/ {total} findings</span></>}
+            </div>
           </div>
+          <button onClick={onStop} style={{
+            padding: '8px 14px', background: C.redBg, border: `1px solid ${C.red}55`,
+            color: C.red, fontSize: 12, fontWeight: 700, letterSpacing: 1, borderRadius: 3, cursor: 'pointer',
+          }}>STOP</button>
         </div>
-        <button onClick={onStop} style={{
-          padding: '8px 14px', background: C.redBg, border: `1px solid ${C.red}55`,
-          color: C.red, fontSize: 12, fontWeight: 700, letterSpacing: 1, borderRadius: 3, cursor: 'pointer',
-        }}>STOP</button>
-      </div>
 
-      <div style={{ height: 4, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: 4, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
+          {isLoading ? (
+            <div style={{ width: '100%', height: '100%', background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite', backgroundSize: '200% 100%' }} />
+          ) : (
+            <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
+          )}
+        </div>
+
         {isLoading ? (
-          <div style={{ width: '100%', height: '100%', background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite', backgroundSize: '200% 100%' }} />
+          <div style={{ padding: '14px 16px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
+            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
+              {name || 'Downloading judge model weights — this only happens once, then it stays cached.'}
+            </div>
+          </div>
         ) : (
-          <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
+          <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>EVALUATING</div>
+            <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
+          </div>
         )}
+
+        {judgeText ? (
+          <div style={{ padding: '14px 16px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4 }}>
+            <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.2, marginBottom: 8 }}>JUDGE OUTPUT</div>
+            <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {judgeText}
+            </div>
+          </div>
+        ) : !isLoading ? (
+          <div style={{ padding: '12px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 999, background: C.blue, animation: 'pulse 1.2s ease-in-out infinite' }} />
+            Sending to judge…
+          </div>
+        ) : null}
       </div>
 
-      {isLoading ? (
-        <div style={{ padding: '20px 16px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
-          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
-            {name || 'Downloading judge model weights — this only happens once, then it stays cached.'}
+      {/* Model response — readable while judge works */}
+      {probeResponse && (
+        <div style={{ flex: 1, margin: '0 28px 24px', display: 'flex', flexDirection: 'column', gap: 0, minHeight: 0 }}>
+          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
+            MODEL RESPONSE
           </div>
-        </div>
-      ) : (
-        <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
-          <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 6 }}>EVALUATING</div>
-          <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{name}</div>
+          <div style={{ flex: 1, padding: '12px 14px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, overflowY: 'auto', minHeight: 120 }}>
+            <div style={{ fontSize: 13, color: C.text2, fontFamily: C.mono, lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {probeResponse}
+            </div>
+          </div>
+          {probePayload && (
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 0 }}>
+                <span style={{ fontSize: 10, color: C.text3 }}>▶</span> ATTACK PAYLOAD
+              </summary>
+              <div style={{ marginTop: 6, padding: '10px 12px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, fontSize: 12, color: C.text3, fontFamily: C.mono, lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {probePayload}
+              </div>
+            </details>
+          )}
         </div>
       )}
-
-      {judgeText ? (
-        <div style={{ flex: 1, padding: '14px 16px', background: C.surface, border: `1px solid ${C.blue}44`, borderRadius: 4, overflowY: 'auto' }}>
-          <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.2, marginBottom: 8 }}>JUDGE OUTPUT</div>
-          <div style={{ fontSize: 13, color: C.text1, fontFamily: C.mono, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {judgeText}
-          </div>
-        </div>
-      ) : !isLoading ? (
-        <div style={{ padding: '18px 16px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text3, fontSize: 13 }}>
-          Sending to judge…
-        </div>
-      ) : null}
-
-      <div style={{ fontSize: 12, color: C.text3 }}>
-        Judge verdicts are written to each finding as they complete. You'll review everything in the report when this finishes.
-      </div>
     </div>
   );
 }
