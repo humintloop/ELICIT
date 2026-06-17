@@ -39,12 +39,12 @@ const C = {
   orange:   '#D37A36',
   ochre:    '#B99242',
   amberBg:  'rgba(200,120,68,.13)',
-  warmDim:  '#A88468',
-  coolDim:  '#657189',
+  warmDim:  '#5CBFBA',
+  coolDim:  '#3D9E99',
   ink:      '#0A0C16',
   text1:    '#E6D6C8',
-  text2:    '#A88468',
-  text3:    '#68738A',
+  text2:    '#5CBFBA',
+  text3:    '#3D9E99',
   mono:     '"JetBrains Mono", ui-monospace, monospace',
 };
 
@@ -897,6 +897,7 @@ function btn(C, variant) {
 function GlobalStyle({ C }) {
   return (
     <style>{`
+      html { zoom: 1.12; }
       *, *::before, *::after { box-sizing: border-box; }
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-thumb { background: ${C.borderHi}; border-radius: 999px; }
