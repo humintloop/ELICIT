@@ -16,7 +16,7 @@ export default function TriagePanel({
   if (!evalResult) return null;
 
   const finalVerdict = finalEvalSummary?.finalVerdict || evalResult.verdict;
-  const color = finalVerdict === 'SUCCESS' ? C.red : finalVerdict === 'PARTIAL' ? C.amber : finalVerdict === 'REVIEW' ? C.blue : C.teal;
+  const color = finalVerdict === 'SUCCESS' ? C.red : finalVerdict === 'PARTIAL' ? C.amber : finalVerdict === 'REVIEW' ? C.text3 : C.teal;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, animation: 'fadeIn .2s ease' }}>

@@ -104,7 +104,7 @@ const BRAND_BASE = import.meta.env.BASE_URL;
 const BRAND_VERSION = '2026-06-15-copper';
 const ATTACK_MODEL_SETTINGS = { temperature: 0.7, max_tokens: 600 };
 const JUDGE_MODEL_SETTINGS = { temperature: 0.1, max_tokens: 150 };
-const DIFFICULTY_COLOR = { low: C.coolDim, medium: C.amberDim, high: C.amber };
+const DIFFICULTY_COLOR = { low: C.text3, medium: C.amberDim, high: C.amber };
 
 const createRunId = () => `run-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 const verdictRank = (v = '') => ({ FAILURE: 0, FAILED: 0, REVIEW: 1, PARTIAL: 2, SUCCESS: 3 }[String(v).toUpperCase()] ?? 1);
@@ -112,8 +112,8 @@ const ACTIVE_CASE_KEY = 'elicit-active-case';
 const EFFECTIVENESS_OPTIONS = [
   { value: 'ABSENT', label: 'ABSENT', help: 'Control does not exist or was never implemented', colorKey: 'red' },
   { value: 'INEFFECTIVE', label: 'INEFFECTIVE', help: 'Control exists but failed completely under testing', colorKey: 'amber' },
-  { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'ochre' },
-  { value: 'EFFECTIVE', label: 'EFFECTIVE', help: 'Control exists and functioned as expected under testing', colorKey: 'green' },
+  { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'amber' },
+  { value: 'EFFECTIVE', label: 'EFFECTIVE', help: 'Control exists and functioned as expected under testing', colorKey: 'teal' },
 ];
 const AUDIT_FINDING_VERDICTS = new Set(['SUCCESS', 'PARTIAL']);
 const isAssessed = (value) => ['ABSENT', 'INEFFECTIVE', 'PARTIAL', 'EFFECTIVE'].includes(String(value || '').toUpperCase());
@@ -1125,9 +1125,9 @@ function SessionContextBar({ C, stage, model, caseId, controlIds, probeIndex, to
     const outcome = outcomes[payload.id];
     if (payload.id === activeProbeId && !outcome) return C.text1;
     if (outcome === 'SUCCESS') return C.amber;
-    if (outcome === 'PARTIAL') return C.orange;
+    if (outcome === 'PARTIAL') return C.amber;
     if (outcome === 'FAILURE' || outcome === 'FAILED') return C.teal;
-    if (outcome === 'REVIEW') return C.blue;
+    if (outcome === 'REVIEW') return C.text3;
     return C.borderHi;
   };
   return (
@@ -1361,36 +1361,31 @@ function TriageStage({
   const finalVerdict = summary.finalVerdict;
   const vc = getVerdictColor(finalVerdict, C);
 
-  const dispositions = [
-    ['CONFIRMED', 'Confirm', 'The attack worked — this is a real finding.', C.red],
-    ['FALSE_POSITIVE', 'Reject', 'The model actually held. Mark as noise.', C.teal],
-    ['NEEDS_RETEST', 'Retest', 'Ambiguous — queue it to run again.', C.amber],
-    ['ACCEPTED_RISK', 'Accept risk', 'Real, but acceptable for this target.', C.text2],
-  ];
+  const needsEffectiveness = ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment;
+  const [mappingOpen, setMappingOpen] = useState(false);
 
   return (
-    <div className="es-card" style={{ flex: 1, width: '100%', padding: '24px 24px 64px', display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
-      <div>
-        <div style={{ fontSize: 10, color, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 }}>Triage · {probe.name}</div>
-        <div style={{ padding: '14px 18px', border: `1px solid ${vc}55`, borderLeft: `3px solid ${vc}`, borderRadius: 5, background: `${vc}12` }}>
-          <div style={{ fontSize: 16, color: vc, fontWeight: 900, letterSpacing: 1 }}>{getVerdictLabel(finalVerdict)}</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 10, color: C.text2, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 7px', borderRadius: 2 }}>HEURISTIC: {getVerdictLabel(evalResult?.verdict)}</span>
-            {judgeMode && judgeResult && <span style={{ fontSize: 10, color: C.text2, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 7px', borderRadius: 2 }}>JUDGE: {getVerdictLabel(judgeResult.verdict)}</span>}
-          </div>
-          {(summary.note || evalResult?.reason) && (
-            <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.55, marginTop: 10 }}>{summary.note || evalResult?.reason}</div>
-          )}
+    <div className="es-card" style={{ flex: 1, width: '100%', padding: '24px 24px 80px', display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
+
+      {/* 1 — Result */}
+      <div style={{ padding: '14px 18px', border: `1px solid ${vc}44`, borderLeft: `3px solid ${vc}`, borderRadius: 5, background: `${vc}0D` }}>
+        <div style={{ fontSize: 10, color: C.text3, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>{probe.name}</div>
+        <div style={{ fontSize: 20, color: vc, fontWeight: 800 }}>{getVerdictLabel(finalVerdict)}</div>
+        <div style={{ display: 'flex', gap: 7, marginTop: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: C.text3, fontFamily: C.mono, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 7px', borderRadius: 2 }}>Heuristic: {getVerdictLabel(evalResult?.verdict)}</span>
+          {judgeMode && judgeResult && <span style={{ fontSize: 11, color: C.text3, fontFamily: C.mono, background: C.bg, border: `1px solid ${C.border}`, padding: '2px 7px', borderRadius: 2 }}>Judge: {getVerdictLabel(judgeResult.verdict)}</span>}
         </div>
+        {(summary.note || evalResult?.reason) && (
+          <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginTop: 10 }}>{summary.note || evalResult?.reason}</div>
+        )}
+        {summary.disagreement && (
+          <div style={{ marginTop: 10, fontSize: 12, color: C.amber, lineHeight: 1.5 }}>
+            Evaluators disagree — both signals are preserved in the finding. Your decision decides the record.
+          </div>
+        )}
       </div>
 
-      {summary.disagreement && (
-        <div style={{ padding: '10px 14px', background: C.amberBg, border: `1px solid ${C.amber}55`, borderRadius: 4 }}>
-          <div style={{ fontSize: 11, color: C.amber, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>EVALUATORS DISAGREE</div>
-          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5 }}>Heuristic and judge gave different verdicts. Both are kept in the finding — your call decides the record.</div>
-        </div>
-      )}
-
+      {/* 2 — Evidence */}
       <ConversationTranscript
         C={C}
         victimPrompt={victimPrompt}
@@ -1401,55 +1396,57 @@ function TriageStage({
         judgeResult={judgeResult}
       />
 
-      <FrameworkMappingExplainer
-        C={C}
-        techniqueId={probe.technique}
-        techniqueName={probe.name}
-        owasp={cluster.owasp}
-        payload={probe}
-        compact
-      />
-
-      <div style={{ background: C.surface, border: `1px solid ${C.amber}44`, borderLeft: `3px solid ${C.amber}`, borderRadius: 5, padding: '12px 14px' }}>
-        <SectionTitle C={C}>Effectiveness assessment</SectionTitle>
-        <div style={{ fontSize: 11, color: C.text3, lineHeight: 1.45, marginBottom: 9 }}>Required before this finding is audit-ready.</div>
+      {/* 3 — Control assessment */}
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: '14px 16px' }}>
+        <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.4, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>Control assessment</div>
         <EffectivenessButtonGroup C={C} options={effectOptions} value={effectivenessAssessment} onChange={onSelectEffectiveness} />
-        <div style={{ marginTop: 12 }}>
-          <SectionTitle C={C}>Control gap statement</SectionTitle>
-          <textarea
-            value={controlGapStatement}
-            onChange={e => setControlGapStatement(e.target.value)}
-            rows={4}
-            style={{ width: '100%', background: C.bg, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, lineHeight: 1.55, padding: '9px 10px', resize: 'vertical', borderRadius: 3 }}
-          />
-        </div>
+        {effectivenessAssessment && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Control gap statement</div>
+            <textarea
+              value={controlGapStatement}
+              onChange={e => setControlGapStatement(e.target.value)}
+              rows={3}
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, lineHeight: 1.55, padding: '9px 10px', resize: 'vertical', borderRadius: 3 }}
+            />
+          </div>
+        )}
+        <button onClick={() => setMappingOpen(p => !p)} style={{ marginTop: 10, background: 'none', border: 'none', color: C.text3, cursor: 'pointer', fontSize: 12, padding: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <ChevronRight size={12} style={{ transform: mappingOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+          Framework & control mapping · {probe.technique}{cluster.owasp ? ` · ${cluster.owasp}` : ''}
+        </button>
+        {mappingOpen && (
+          <div style={{ marginTop: 12 }}>
+            <FrameworkMappingExplainer C={C} techniqueId={probe.technique} techniqueName={probe.name} owasp={cluster.owasp} payload={probe} compact />
+          </div>
+        )}
       </div>
 
-      {/* Disposition — the one decision */}
-      {!effectivenessAssessment && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && (
-        <div style={{ padding: '9px 11px', background: C.redBg, border: `1px solid ${C.red}55`, color: C.red, borderRadius: 3, fontSize: 12, fontWeight: 800 }}>
-          Choose an effectiveness assessment before confirming this finding as audit evidence.
-        </div>
-      )}
-
-      <div>
-        <SectionTitle C={C}>Your call — log this as</SectionTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
-          {dispositions.map(([action, label, help, dc]) => (
-            <button key={action} onClick={() => onLog(action)} disabled={action === 'CONFIRMED' && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment} className="es-pick" style={{
-              textAlign: 'left', padding: '13px 14px', borderRadius: 4, cursor: action === 'CONFIRMED' && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment ? 'not-allowed' : 'pointer', opacity: action === 'CONFIRMED' && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment ? .45 : 1,
-              background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${dc}`,
-            }}>
-              <div style={{ fontSize: 13, color: dc, fontWeight: 800, letterSpacing: .5, marginBottom: 4 }}>{label}</div>
-              <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.45 }}>{help}</div>
-            </button>
-          ))}
+      {/* 4 — Primary action */}
+      <div style={{ position: 'sticky', bottom: 0, marginLeft: -24, marginRight: -24, padding: '12px 24px 16px', background: `linear-gradient(transparent, ${C.bg} 28%)` }}>
+        {needsEffectiveness && (
+          <div style={{ marginBottom: 10, fontSize: 12, color: C.amber, textAlign: 'center' }}>
+            Complete the control assessment above before confirming this finding as evidence.
+          </div>
+        )}
+        <button onClick={() => onLog('CONFIRMED')} disabled={needsEffectiveness} style={{
+          width: '100%', padding: '15px', borderRadius: 4, border: 'none',
+          cursor: needsEffectiveness ? 'not-allowed' : 'pointer',
+          background: needsEffectiveness ? C.surface : C.red, color: needsEffectiveness ? C.text3 : '#fff',
+          fontSize: 14, fontWeight: 800, letterSpacing: 1.5,
+          boxShadow: needsEffectiveness ? 'none' : `0 0 28px ${C.red}33`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          transition: 'all .2s',
+        }}>
+          CONFIRM AS FINDING <ChevronRight size={15} />
+        </button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => onLog('FALSE_POSITIVE')} style={{ ...btn(C, 'ghost'), fontSize: 12 }}>False positive</button>
+          <button onClick={() => onLog('NEEDS_RETEST')} style={{ ...btn(C, 'ghost'), fontSize: 12 }}>Needs retest</button>
+          <button onClick={() => onLog('ACCEPTED_RISK')} style={{ ...btn(C, 'ghost'), fontSize: 12 }}>Accept risk</button>
+          <button onClick={onRetry} style={{ ...btn(C, 'ghost'), fontSize: 12 }}><RotateCcw size={11} /> Re-run</button>
         </div>
       </div>
-
-      <button onClick={onRetry} style={{ ...btn(C, 'ghost'), alignSelf: 'flex-start' }}>
-        <RotateCcw size={12} /> RE-RUN THIS PROBE INSTEAD
-      </button>
     </div>
   );
 }

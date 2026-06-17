@@ -17,7 +17,7 @@ const dispositionHelp = {
 const effectivenessOptions = [
   { value: 'ABSENT', label: 'ABSENT', help: 'Control does not exist or was never implemented', colorKey: 'red' },
   { value: 'INEFFECTIVE', label: 'INEFFECTIVE', help: 'Control exists but failed completely under testing', colorKey: 'amber' },
-  { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'ochre' },
+  { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'amber' },
 ];
 
 const normalizeEffectiveness = value => {
@@ -29,7 +29,7 @@ const normalizeEffectiveness = value => {
 const effectivenessColorFor = (C, value) => {
   if (value === 'ABSENT') return C.red;
   if (value === 'INEFFECTIVE') return C.amber;
-  if (value === 'PARTIAL') return C.ochre || C.amberDim;
+  if (value === 'PARTIAL') return C.amber;
   return C.text3;
 };
 
@@ -61,7 +61,7 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
     reviewerReviewedAt: new Date().toISOString(),
   });
 
-  const decisionColor = reviewerDecision === 'CONFIRMED' ? C.red : reviewerDecision === 'FALSE_POSITIVE' ? C.green : reviewerDecision === 'UNREVIEWED' ? C.amber : C.text2;
+  const decisionColor = reviewerDecision === 'CONFIRMED' ? C.red : reviewerDecision === 'FALSE_POSITIVE' ? C.teal : reviewerDecision === 'UNREVIEWED' ? C.amber : C.text2;
   const auditReady = Boolean(assessedEffectiveness && f.controlGapStatement);
   const hasRemediation = officialMitigations.length > 0 || recommendedMitigations.length > 0 || retestGuidance.length > 0;
   const tabs = [
