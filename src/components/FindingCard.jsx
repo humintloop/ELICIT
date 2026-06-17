@@ -371,16 +371,17 @@ function VerdictCard({ C, label, verdict, reason, isJudge }) {
     <div style={{
       flex: '1 1 240px',
       background: verdict ? `${color}0D` : C.bg,
-      border: `1px solid ${verdict ? color + '44' : C.border}`,
+      border: `1px solid ${verdict ? color + '55' : C.border}`,
       borderLeft: `3px solid ${verdict ? color : C.border}`,
-      borderRadius: 4,
-      padding: '12px 14px',
+      borderRadius: 5,
+      padding: '14px 16px',
+      boxShadow: verdict ? `0 0 18px ${color}22` : 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: reason ? 10 : 0 }}>
-        <span style={{ fontSize: 10, color: isJudge ? C.blue : C.text3, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase' }}>{label}</span>
+        <span style={{ fontSize: 11, color: isJudge ? C.teal : C.text3, fontWeight: 900, letterSpacing: 1.4, textTransform: 'uppercase' }}>{label}</span>
         <span style={{
-          fontSize: 12, color, fontWeight: 800, letterSpacing: 1,
-          background: verdict ? `${color}22` : C.surface,
+          fontSize: 12, color, fontWeight: 800,
+          background: verdict ? `${color}18` : C.surface,
           border: `1px solid ${verdict ? color + '55' : C.border}`,
           padding: '2px 8px', borderRadius: 2,
         }}>{verdictLabel}</span>
@@ -393,7 +394,11 @@ function VerdictCard({ C, label, verdict, reason, isJudge }) {
           </button>
         )}
       </div>
-      {reason && reasonOpen && <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55 }}>{reason}</div>}
+      {reason && reasonOpen && (
+        <div style={{ fontFamily: isJudge ? C.mono : undefined, fontSize: 13, color: C.text2, lineHeight: 1.65, whiteSpace: isJudge ? 'pre-wrap' : undefined }}>
+          {reason}
+        </div>
+      )}
       {!reason && !verdict && <div style={{ fontSize: 12, color: C.text3, fontStyle: 'italic' }}>No verdict recorded</div>}
     </div>
   );
