@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getVerdictColor, getVerdictLabel } from './VerdictBanner';
 import { getMitigationMapping } from '../data/mitigationMappings';
+import { CONTROL_SET } from '../data/frameworkMappings';
 import FrameworkMappingExplainer from './FrameworkMappingExplainer';
 
 const dispositionHelp = {
@@ -19,6 +20,35 @@ const reviewStatusLabel = (status = '') => String(status)
   .replace('AUTO_TRIAGED', 'AUTO TRIAGED')
   .replaceAll('_', ' ');
 
+const effectivenessOptions = [
+  { value: 'ABSENT', label: 'ABSENT', help: 'Control does not exist or was never implemented', colorKey: 'red' },
+  { value: 'INEFFECTIVE', label: 'INEFFECTIVE', help: 'Control exists but failed completely under testing', colorKey: 'amber' },
+  { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'ochre' },
+];
+
+const normalizeEffectiveness = value => {
+  if (value === 'PARTIALLY_EFFECTIVE') return 'PARTIAL';
+  if (value === 'EFFECTIVE') return '';
+  return value || '';
+};
+
+const effectivenessColorFor = (C, value) => {
+  if (value === 'ABSENT') return C.red;
+  if (value === 'INEFFECTIVE') return C.amber;
+  if (value === 'PARTIAL') return C.ochre || C.amberDim;
+  return C.text3;
+};
+
+const draftGapStatement = (finding, effectiveness) => {
+  const controlIds = finding.selectedControlIds || finding.mappedControls || finding.mapped_controls || [];
+  const control = CONTROL_SET[controlIds[0]] || CONTROL_SET['LLM-EVAL-001'];
+  const observed = (finding.responseFull || finding.response)
+    ? 'produced behavior that requires reviewer assessment against the expected secure behavior'
+    : 'has captured evidence requiring reviewer assessment';
+  const technique = finding.payloadName || finding.techniqueName || finding.techniqueId || 'the selected probe';
+  return `Control ${control.id} (${control.name}) requires the system to ${control.objective}. This probe demonstrates the system ${observed} under ${technique}, indicating the control is ${effectiveness.toLowerCase()}.`;
+};
+
 export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [frameworkOpen, setFrameworkOpen] = useState(false);
@@ -28,8 +58,14 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
   const officialMitigations = f.officialMitigations || f.official_mitigations || mitigation.official_mitigations || [];
   const recommendedMitigations = f.recommendedMitigations || f.recommended_mitigations || mitigation.recommended_mitigations || [];
   const retestGuidance = f.retestGuidance || f.retest_guidance || mitigation.retest_guidance || [];
-  const effectiveness = f.effectivenessAssessment || 'NOT_ASSESSED';
-  const effectivenessColor = effectiveness === 'ABSENT' ? C.red : effectiveness === 'INEFFECTIVE' ? C.amber : effectiveness === 'PARTIALLY_EFFECTIVE' ? C.amberDim : effectiveness === 'EFFECTIVE' ? C.teal : C.text3;
+  const assessedEffectiveness = normalizeEffectiveness(f.effectivenessAssessment || f.effectiveness_assessment);
+  const effectiveness = assessedEffectiveness || 'NOT_ASSESSED';
+  const effectivenessColor = effectivenessColorFor(C, assessedEffectiveness);
+  const updateEffectiveness = (value) => onUpdate({
+    effectivenessAssessment: value,
+    controlGapStatement: f.controlGapStatement || draftGapStatement(f, value),
+    reviewerReviewedAt: new Date().toISOString(),
+  });
 
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${vc}`, borderRadius: 3, animation: 'fadeUp .2s ease' }}>
@@ -61,7 +97,7 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
                 <Mini C={C} label="Control" value={(f.selectedControlIds || f.mappedControls || []).join(', ') || 'Not recorded'} />
                 <Mini C={C} label="Effectiveness" value={effectiveness.replaceAll('_', ' ')} />
               </div>
-              <Block C={C} label="CONTROL GAP STATEMENT" bright>{f.controlGapStatement || 'No control gap statement recorded.'}</Block>
+              <Block C={C} label="CONTROL GAP STATEMENT" bright>{f.controlGapStatement || 'Control gap statement not completed — finding is not audit-ready.'}</Block>
             </div>
           )}
 
@@ -79,12 +115,51 @@ export default function FindingCard({ C, finding: f, auditorView, onUpdate, onDe
               </select>
               <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.4, marginTop: 5 }}>{dispositionHelp[reviewerDecision]}</div>
             </div>
-            <div style={{ flex: '1 1 320px' }}>
-              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>REVIEWER NOTES</div>
-              <textarea value={f.reviewerNotes || ''} onChange={e => onUpdate({ reviewerNotes: e.target.value, notes: e.target.value })}
-                placeholder="Add reviewer rationale, retest result, or disposition…" rows={2}
-                style={{ width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 14, padding: '6px 8px', lineHeight: 1.45, resize: 'vertical', borderRadius: 2 }} />
+            <div style={{ flex: '1 1 360px' }}>
+              <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>EFFECTIVENESS ASSESSMENT</div>
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                {effectivenessOptions.map(option => {
+                  const color = C[option.colorKey] || C.amber;
+                  const active = assessedEffectiveness === option.value;
+                  return (
+                    <button key={option.value} onClick={() => updateEffectiveness(option.value)} title={option.help} style={{
+                      background: active ? `${color}22` : C.bg,
+                      border: `1px solid ${active ? color : C.borderHi}`,
+                      color,
+                      borderRadius: 3,
+                      padding: '6px 9px',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: 900,
+                      letterSpacing: 1,
+                    }}>
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.4, marginTop: 5 }}>
+                Required before this finding is audit-ready.
+              </div>
             </div>
+          </div>
+
+          <div style={{ background: C.surface, border: `1px solid ${C.borderHi}`, borderRadius: 3, padding: '9px 10px' }}>
+            <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>CONTROL GAP STATEMENT</div>
+            <textarea
+              value={f.controlGapStatement || ''}
+              onChange={e => onUpdate({ controlGapStatement: e.target.value })}
+              placeholder="Select an effectiveness assessment to draft the governance translation."
+              rows={3}
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, color: C.text1, fontSize: 13, padding: '7px 8px', lineHeight: 1.5, resize: 'vertical', borderRadius: 2 }}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, color: C.text3, letterSpacing: 1, marginBottom: 4 }}>REVIEWER NOTES</div>
+            <textarea value={f.reviewerNotes || ''} onChange={e => onUpdate({ reviewerNotes: e.target.value, notes: e.target.value })}
+              placeholder="Add reviewer rationale, retest result, or disposition…" rows={2}
+              style={{ width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 14, padding: '6px 8px', lineHeight: 1.45, resize: 'vertical', borderRadius: 2 }} />
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

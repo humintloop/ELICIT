@@ -57,10 +57,6 @@ export default function FindingsReport({
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ background: C.amberBg, border: `1px solid ${C.amber}40`, color: C.text2, padding: '8px 10px', fontSize: 13, lineHeight: 1.45, borderRadius: 2 }}>
-          Findings are stored in this browser only. Export JSON or Markdown before clearing site data, changing browsers, or relying on this as a long-term record.
-        </div>
-
         {findings.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
             {['SUCCESS', 'PARTIAL', 'FAILURE', 'REVIEW'].map(verdict => {

@@ -36,6 +36,8 @@ const C = {
   blue:     '#6D8FD6',
   amber:    '#C87844',
   amberDim: '#82492A',
+  orange:   '#D37A36',
+  ochre:    '#B99242',
   amberBg:  'rgba(200,120,68,.13)',
   warmDim:  '#A88468',
   coolDim:  '#657189',
@@ -74,6 +76,15 @@ const DIFFICULTY_COLOR = { low: C.coolDim, medium: C.amberDim, high: C.amber };
 const createRunId = () => `run-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 const verdictRank = (v = '') => ({ FAILURE: 0, FAILED: 0, REVIEW: 1, PARTIAL: 2, SUCCESS: 3 }[String(v).toUpperCase()] ?? 1);
 const ACTIVE_CASE_KEY = 'elicit-active-case';
+const EFFECTIVENESS_OPTIONS = [
+  { value: 'ABSENT', label: 'ABSENT', help: 'Control does not exist or was never implemented', colorKey: 'red' },
+  { value: 'INEFFECTIVE', label: 'INEFFECTIVE', help: 'Control exists but failed completely under testing', colorKey: 'amber' },
+  { value: 'PARTIAL', label: 'PARTIAL', help: 'Control exists and partially functions but has exploitable gaps', colorKey: 'ochre' },
+];
+const AUDIT_FINDING_VERDICTS = new Set(['SUCCESS', 'PARTIAL']);
+const isAssessed = (value) => ['ABSENT', 'INEFFECTIVE', 'PARTIAL'].includes(String(value || '').toUpperCase());
+const isConfirmedAuditFinding = (finding = {}) => AUDIT_FINDING_VERDICTS.has(String(finding.verdict || '').toUpperCase()) && (finding.reviewerDecision || finding.reviewer_decision) === 'CONFIRMED';
+const needsEffectivenessAssessment = (finding = {}) => isConfirmedAuditFinding(finding) && !isAssessed(finding.effectivenessAssessment || finding.effectiveness_assessment);
 
 const loadActiveCase = () => {
   try { return JSON.parse(localStorage.getItem(ACTIVE_CASE_KEY) || '{}'); } catch { return {}; }
@@ -86,14 +97,14 @@ const simplePromptHash = async (text = '') => {
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 };
 
-const draftControlGapStatement = ({ controlIds = [], response = '', probe, effectiveness = 'PARTIALLY_EFFECTIVE' }) => {
+const draftControlGapStatement = ({ controlIds = [], response = '', probe, effectiveness = 'PARTIAL' }) => {
   const control = CONTROL_SET[controlIds[0]] || CONTROL_SET['LLM-EVAL-001'];
   const requirement = control?.objective || 'produce repeatable evidence for AI assurance review';
   const observed = response
     ? 'produced behavior that requires reviewer assessment against the expected secure behavior'
     : 'has not yet produced captured evidence';
   const condition = probe?.name || 'the selected adversarial probe';
-  return `Control ${control.id} (${control.name}) requires the system to ${requirement}. This finding demonstrates the system ${observed} under ${condition}, indicating the control is ${effectiveness.replaceAll('_', ' ').toLowerCase()}.`;
+  return `Control ${control.id} (${control.name}) requires the system to ${requirement}. This probe demonstrates the system ${observed} under ${condition}, indicating the control is ${effectiveness.replaceAll('_', ' ').toLowerCase()}.`;
 };
 
 function summarizeEvaluation(heuristic, judge) {
@@ -154,7 +165,7 @@ export default function App() {
   const abortRef = useRef(false);
   const [loggedFlash, setLoggedFlash] = useState(null);
   const [controlGapStatement, setControlGapStatement] = useState('');
-  const [effectivenessAssessment, setEffectivenessAssessment] = useState('PARTIALLY_EFFECTIVE');
+  const [effectivenessAssessment, setEffectivenessAssessment] = useState('');
   const [auditorView, setAuditorView] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(savedCase.updatedAt || null);
 
@@ -197,6 +208,9 @@ export default function App() {
   const selectedVictimModel = VICTIM_MODELS.find(m => m.id === victimModelId);
   const loadedModel = VICTIM_MODELS.find(m => m.id === loadedModelId);
   const currentCaseFindings = findings.filter(f => f.caseFileId === caseId);
+  const confirmedCaseFindings = currentCaseFindings.filter(isConfirmedAuditFinding);
+  const triageQueue = confirmedCaseFindings.filter(needsEffectivenessAssessment);
+  const auditFindingCount = confirmedCaseFindings.length;
   const progressOutcomes = clusterPayloads.reduce((acc, payload) => {
     const finding = currentCaseFindings.find(f => f.caseId === (payload.case_id || payload.id));
     if (finding) acc[payload.id] = finding.verdict;
@@ -205,14 +219,14 @@ export default function App() {
   if (probe && evalResult) progressOutcomes[probe.id] = evalResult.verdict;
 
   useEffect(() => {
-    if (!probe || !response || !evalResult) return;
+    if (!probe || !response || !evalResult || !effectivenessAssessment || controlGapStatement) return;
     setControlGapStatement(draftControlGapStatement({
       controlIds: selectedControlIds,
       response,
       probe,
       effectiveness: effectivenessAssessment,
     }));
-  }, [probe?.id, response, evalResult, selectedControlIds, effectivenessAssessment]);
+  }, [probe?.id, response, evalResult, selectedControlIds, effectivenessAssessment, controlGapStatement]);
 
   // ── Model loading ──
   const loadModel = async (modelId) => {
@@ -248,7 +262,7 @@ export default function App() {
 
   const resetProbeState = () => {
     setResponse(''); setEvalResult(null); setJudgeResult(null);
-    setControlGapStatement(''); setEffectivenessAssessment('PARTIALLY_EFFECTIVE');
+    setControlGapStatement(''); setEffectivenessAssessment('');
     setRunning(false); setJudging(false); setLoggedFlash(null); abortRef.current = false;
   };
 
@@ -351,12 +365,13 @@ export default function App() {
     const mapping = buildCaseMapping(tech, probe);
     const mitigation = getMitigationMapping(tech);
     const evalSummary = summarizeEvaluation(evalResult, judgeResult);
-    const gapStatement = controlGapStatement || draftControlGapStatement({
+    const finalEffectiveness = isAssessed(effectivenessAssessment) ? effectivenessAssessment : '';
+    const gapStatement = controlGapStatement || (finalEffectiveness ? draftControlGapStatement({
       controlIds: selectedControlIds.length ? selectedControlIds : mapping.mapped_controls,
       response,
       probe,
-      effectiveness: effectivenessAssessment,
-    });
+      effectiveness: finalEffectiveness,
+    }) : '');
     const timestamp = new Date().toISOString();
     const runId = createRunId();
 
@@ -402,7 +417,7 @@ export default function App() {
       reviewerNotes: '',
       reviewerReviewedAt: new Date().toISOString(),
       controlGapStatement: gapStatement,
-      effectivenessAssessment,
+      effectivenessAssessment: finalEffectiveness,
       evaluationDisagreement: evalSummary.disagreement,
       evaluationNote: evalSummary.note,
       heuristicVerdict: evalResult.verdict,
@@ -514,17 +529,20 @@ export default function App() {
   );
 
   // ── Stage progress rail (shows where you are without clutter) ──
+  const triageTotal = confirmedCaseFindings.length;
+  const triageAwaiting = triageQueue.length > 0;
+  const triageDotColor = triageAwaiting ? C.amber : triageTotal > 0 ? C.teal : C.borderHi;
   const stageRail = stage !== STAGE.HOME && stage !== STAGE.CASE && (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: 'rgba(10,12,22,.7)', flexShrink: 0, overflowX: 'auto' }}>
       {[
         ['Briefing', stage === STAGE.LOADING, () => setStage(STAGE.CASE), true],
         [`Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE, () => setStage(STAGE.PROBE), true],
-        ['Triage', stage === STAGE.TRIAGE, () => setStage(STAGE.TRIAGE), Boolean(evalResult || response)],
+        ['Triage', stage === STAGE.TRIAGE, () => setStage(STAGE.TRIAGE), Boolean(evalResult || response || triageTotal)],
         ['Report', stage === STAGE.REPORT, () => setStage(STAGE.REPORT), true],
       ].map(([label, active, onClick, enabled], i) => (
         <button key={label} onClick={onClick} disabled={!enabled} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, background: active ? C.amberBg : 'transparent', border: `1px solid ${active ? C.amber : 'transparent'}`, borderRadius: 3, padding: '4px 7px', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .45 }}>
           {i > 0 && <ChevronRight size={11} color={C.border} style={{ margin: '0 9px' }} />}
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: active ? C.amber : C.borderHi, boxShadow: active ? `0 0 8px ${C.amber}99` : 'none' }} />
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: label === 'Triage' ? triageDotColor : active ? C.amber : C.borderHi, boxShadow: label === 'Triage' && triageAwaiting ? `0 0 10px ${C.amber}` : active ? `0 0 8px ${C.amber}99` : 'none', animation: label === 'Triage' && triageAwaiting ? 'pulse 1.1s ease-in-out infinite' : 'none' }} />
           <span style={{ fontSize: 11, letterSpacing: 1, fontWeight: active ? 800 : 500, color: active ? C.amber : C.text3, textTransform: 'uppercase' }}>{label}</span>
         </button>
       ))}
@@ -549,7 +567,7 @@ export default function App() {
           controlIds={selectedControlIds}
           probeIndex={probeIndex}
           total={clusterPayloads.length}
-          findingsCount={currentCaseFindings.length}
+          findingsCount={auditFindingCount}
           lastSavedAt={lastSavedAt}
           probes={clusterPayloads}
           outcomes={progressOutcomes}
@@ -564,7 +582,7 @@ export default function App() {
             C={C}
             findings={findings}
             clusters={CLUSTERS}
-            activeCase={{ caseId, probeIndex, total: clusterPayloads.length, findingsCount: currentCaseFindings.length }}
+            activeCase={{ caseId, probeIndex, total: clusterPayloads.length, findingsCount: auditFindingCount }}
             onEnter={newCase}
             onResume={() => setStage(modelStatus === 'ready' ? STAGE.PROBE : STAGE.CASE)}
             onReport={() => setStage(STAGE.REPORT)}
@@ -629,7 +647,18 @@ export default function App() {
           </div>
         )}
 
-        {stage === STAGE.TRIAGE && probe && (
+        {stage === STAGE.TRIAGE && (!response || !evalResult) && (
+          <CaseTriageQueue
+            C={C}
+            findings={triageQueue}
+            allCount={triageTotal}
+            onUpdateFinding={updateFinding}
+            onReport={() => setStage(STAGE.REPORT)}
+            effectOptions={EFFECTIVENESS_OPTIONS}
+          />
+        )}
+
+        {stage === STAGE.TRIAGE && probe && response && evalResult && (
           <div className="workstation-layout" style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
             <AttackNavigator
               C={C}
@@ -662,6 +691,11 @@ export default function App() {
             setControlGapStatement={setControlGapStatement}
             effectivenessAssessment={effectivenessAssessment}
             setEffectivenessAssessment={setEffectivenessAssessment}
+            onSelectEffectiveness={(value) => {
+              setEffectivenessAssessment(value);
+              setControlGapStatement(draftControlGapStatement({ controlIds: selectedControlIds, response, probe, effectiveness: value }));
+            }}
+            effectOptions={EFFECTIVENESS_OPTIONS}
             summarize={summarizeEvaluation}
           />
           </div>
@@ -674,7 +708,13 @@ export default function App() {
             exportFindings={exportFindings}
             exportReport={exportReport}
             exportAuditBrief={exportAuditBrief}
-            clearFindings={() => { if (confirm('Clear all findings?')) setFindings([]); }}
+            clearFindings={() => {
+              const activeCount = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) !== 'FALSE_POSITIVE').length;
+              const message = activeCount === 1
+                ? 'You have 1 finding that has not been exported. Export before clearing?'
+                : `You have ${activeCount} findings that may not have been exported. Clear anyway?`;
+              if (confirm(message)) setFindings([]);
+            }}
           >
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <button onClick={newCase} style={btn(C, 'primary')}><FolderOpen size={12} /> START NEW CASE</button>
@@ -730,6 +770,7 @@ function GlobalStyle({ C }) {
       @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
       @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
       @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes pulse { 0%,100% { opacity: .55; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.25); } }
       .es-card { animation: fadeUp .35s ease; }
       .es-pick { transition: border-color .15s, background .15s; }
       .es-pick:hover { border-color: ${C.amber}88 !important; }
@@ -944,7 +985,7 @@ function SessionContextBar({ C, stage, model, caseId, controlIds, probeIndex, to
     const outcome = outcomes[payload.id];
     if (payload.id === activeProbeId && !outcome) return C.text1;
     if (outcome === 'SUCCESS') return C.amber;
-    if (outcome === 'PARTIAL') return C.amberDim;
+    if (outcome === 'PARTIAL') return C.orange;
     if (outcome === 'FAILURE' || outcome === 'FAILED') return C.teal;
     if (outcome === 'REVIEW') return C.blue;
     return C.borderHi;
@@ -1105,7 +1146,8 @@ function TriageStage({
   controlGapStatement,
   setControlGapStatement,
   effectivenessAssessment,
-  setEffectivenessAssessment,
+  onSelectEffectiveness,
+  effectOptions,
   summarize,
 }) {
   const color = C[cluster?.colorKey] || C.amber;
@@ -1197,44 +1239,33 @@ function TriageStage({
       />
 
       <div style={{ background: C.surface, border: `1px solid ${C.amber}44`, borderLeft: `3px solid ${C.amber}`, borderRadius: 5, padding: '12px 14px' }}>
-        <SectionTitle C={C}>Control gap statement</SectionTitle>
-        <textarea
-          value={controlGapStatement}
-          onChange={e => setControlGapStatement(e.target.value)}
-          rows={4}
-          style={{ width: '100%', background: C.bg, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, lineHeight: 1.55, padding: '9px 10px', resize: 'vertical', borderRadius: 3 }}
-        />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-          {[
-            ['ABSENT', 'Absent', C.red],
-            ['INEFFECTIVE', 'Ineffective', C.amber],
-            ['PARTIALLY_EFFECTIVE', 'Partial', C.amberDim],
-            ['EFFECTIVE', 'Effective', C.teal],
-          ].map(([value, label, color]) => (
-            <button key={value} onClick={() => setEffectivenessAssessment(value)} style={{
-              background: effectivenessAssessment === value ? `${color}22` : C.bg,
-              border: `1px solid ${effectivenessAssessment === value ? color : C.border}`,
-              color,
-              borderRadius: 3,
-              padding: '6px 9px',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 900,
-              letterSpacing: 1,
-            }}>
-              {label.toUpperCase()}
-            </button>
-          ))}
+        <SectionTitle C={C}>Effectiveness assessment</SectionTitle>
+        <div style={{ fontSize: 11, color: C.text3, lineHeight: 1.45, marginBottom: 9 }}>Required before this finding is audit-ready.</div>
+        <EffectivenessButtonGroup C={C} options={effectOptions} value={effectivenessAssessment} onChange={onSelectEffectiveness} />
+        <div style={{ marginTop: 12 }}>
+          <SectionTitle C={C}>Control gap statement</SectionTitle>
+          <textarea
+            value={controlGapStatement}
+            onChange={e => setControlGapStatement(e.target.value)}
+            rows={4}
+            style={{ width: '100%', background: C.bg, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, lineHeight: 1.55, padding: '9px 10px', resize: 'vertical', borderRadius: 3 }}
+          />
         </div>
       </div>
 
       {/* Disposition — the one decision */}
+      {!effectivenessAssessment && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && (
+        <div style={{ padding: '9px 11px', background: C.redBg, border: `1px solid ${C.red}55`, color: C.red, borderRadius: 3, fontSize: 12, fontWeight: 800 }}>
+          Choose an effectiveness assessment before confirming this finding as audit evidence.
+        </div>
+      )}
+
       <div>
         <SectionTitle C={C}>Your call — log this as</SectionTitle>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
           {dispositions.map(([action, label, help, dc]) => (
-            <button key={action} onClick={() => onLog(action)} className="es-pick" style={{
-              textAlign: 'left', padding: '13px 14px', borderRadius: 4, cursor: 'pointer',
+            <button key={action} onClick={() => onLog(action)} disabled={action === 'CONFIRMED' && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment} className="es-pick" style={{
+              textAlign: 'left', padding: '13px 14px', borderRadius: 4, cursor: action === 'CONFIRMED' && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment ? 'not-allowed' : 'pointer', opacity: action === 'CONFIRMED' && ['SUCCESS', 'PARTIAL'].includes(finalVerdict) && !effectivenessAssessment ? .45 : 1,
               background: C.surface, border: `1px solid ${C.border}`, borderLeft: `3px solid ${dc}`,
             }}>
               <div style={{ fontSize: 13, color: dc, fontWeight: 800, letterSpacing: .5, marginBottom: 4 }}>{label}</div>
@@ -1247,6 +1278,103 @@ function TriageStage({
       <button onClick={onRetry} style={{ ...btn(C, 'ghost'), alignSelf: 'flex-start' }}>
         <RotateCcw size={12} /> RE-RUN THIS PROBE INSTEAD
       </button>
+    </div>
+  );
+}
+
+function CaseTriageQueue({ C, findings, allCount, onUpdateFinding, onReport, effectOptions }) {
+  const [drafts, setDrafts] = useState({});
+
+  if (!findings.length) {
+    return (
+      <div className="es-card" style={{ maxWidth: 560, width: '100%', margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: allCount > 0 ? C.teal : C.text3, letterSpacing: 1.4, fontWeight: 900 }}>
+          {allCount > 0 ? 'ALL FINDINGS ASSESSED' : 'NO FINDINGS TO TRIAGE'}
+        </div>
+        <div style={{ fontSize: 13, color: C.text2, marginTop: 10 }}>
+          {allCount > 0 ? 'All findings assessed — proceed to Report.' : 'Run and confirm a successful or partial probe to create audit triage work.'}
+        </div>
+        <button onClick={onReport} style={{ ...btn(C, 'primary'), margin: '22px auto 0' }}>OPEN REPORT</button>
+      </div>
+    );
+  }
+
+  const updateDraft = (id, patch) => setDrafts(prev => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
+  const saveOne = (finding) => {
+    const draft = drafts[finding.id] || {};
+    const effectiveness = draft.effectivenessAssessment || finding.effectivenessAssessment || '';
+    const statement = draft.controlGapStatement || finding.controlGapStatement || '';
+    if (!effectiveness) return;
+    onUpdateFinding(finding.id, {
+      effectivenessAssessment: effectiveness,
+      controlGapStatement: statement || 'Control gap statement not completed — finding is not audit-ready.',
+      reviewerReviewedAt: new Date().toISOString(),
+    });
+  };
+
+  return (
+    <div className="es-card" style={{ flex: 1, padding: '24px 24px 64px', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+      <div>
+        <div style={{ fontSize: 10, color: C.amber, letterSpacing: 1.6, textTransform: 'uppercase', fontWeight: 900 }}>Governance triage queue</div>
+        <div style={{ fontSize: 13, color: C.text2, marginTop: 6 }}>Complete the effectiveness assessment and control gap statement for each confirmed finding.</div>
+      </div>
+      {findings.map((finding, idx) => {
+        const draft = drafts[finding.id] || {};
+        const selected = draft.effectivenessAssessment || finding.effectivenessAssessment || '';
+        const statement = draft.controlGapStatement ?? finding.controlGapStatement ?? '';
+        return (
+          <div key={finding.id} style={{ background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${getVerdictColor(finding.verdict, C)}`, borderRadius: 4, padding: '14px 15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 14, color: C.text1, fontWeight: 900 }}>{finding.payloadName}</div>
+                <div style={{ fontSize: 11, color: C.text3, marginTop: 3 }}>{finding.techniqueId} · {finding.owasp || 'OWASP unmapped'}</div>
+              </div>
+              <span style={{ fontSize: 11, color: getVerdictColor(finding.verdict, C), border: `1px solid ${getVerdictColor(finding.verdict, C)}55`, padding: '3px 7px', borderRadius: 2, fontWeight: 900 }}>{getVerdictLabel(finding.verdict)}</span>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <SectionTitle C={C}>Effectiveness assessment</SectionTitle>
+              <EffectivenessButtonGroup C={C} options={effectOptions} value={selected} onChange={(value) => {
+                const controlIds = finding.selectedControlIds || finding.mappedControls || [];
+                const draftStatement = draftControlGapStatement({ controlIds, response: finding.responseFull || finding.response || '', probe: { name: finding.payloadName }, effectiveness: value });
+                updateDraft(finding.id, { effectivenessAssessment: value, controlGapStatement: draft.controlGapStatement || finding.controlGapStatement || draftStatement });
+              }} />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <SectionTitle C={C}>Control gap statement</SectionTitle>
+              <textarea value={statement} onChange={e => updateDraft(finding.id, { controlGapStatement: e.target.value })} rows={3} style={{ width: '100%', background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text1, fontSize: 13, lineHeight: 1.55, padding: '9px 10px', resize: 'vertical', borderRadius: 3 }} />
+            </div>
+            <button onClick={() => saveOne(finding)} disabled={!selected} style={{ ...btn(C, selected ? 'primary' : 'ghost'), marginTop: 12, opacity: selected ? 1 : .45 }}>
+              SAVE & NEXT {idx < findings.length - 1 ? <ChevronRight size={12} /> : null}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function EffectivenessButtonGroup({ C, options, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {options.map(option => {
+        const color = C[option.colorKey] || C.amber;
+        const active = value === option.value;
+        return (
+          <button key={option.value} onClick={() => onChange(option.value)} title={option.help} style={{
+            background: active ? `${color}22` : C.bg,
+            border: `1px solid ${active ? color : C.border}`,
+            color,
+            borderRadius: 3,
+            padding: '7px 10px',
+            cursor: 'pointer',
+            fontSize: 11,
+            fontWeight: 900,
+            letterSpacing: 1,
+          }}>
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

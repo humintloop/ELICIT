@@ -218,7 +218,7 @@ export function generateAuditBriefHtml(findings = [], metadata = {}) {
         <p><b>Controls</b>${escapeHtml(controlsText || 'Not recorded')}</p>
       </div>
       <h3>Control Gap Statement</h3>
-      <p>${escapeHtml(finding.controlGapStatement || 'Not recorded')}</p>
+      <p class="${finding.controlGapStatement ? '' : 'warning'}">${escapeHtml(finding.controlGapStatement || 'Control gap statement not completed — finding is not audit-ready.')}</p>
       <h3>Evidence Summary</h3>
       <pre>${escapeHtml(truncate(finding.responseFull || finding.response || '', 1800))}</pre>
       <h3>Framework Implications</h3>
@@ -247,6 +247,7 @@ h3{color:#C87844;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;ma
 span,b{display:block;color:#68738A;font-size:11px;text-transform:uppercase;letter-spacing:1px}
 strong{color:#E6D6C8}
 pre{white-space:pre-wrap;background:#0A0C16;border:1px solid #1C2238;padding:12px;max-height:360px;overflow:auto}
+.warning{color:#DC4838;border:1px solid rgba(220,72,56,.45);background:rgba(220,72,56,.10);padding:10px}
 .foot{color:#68738A;font-size:12px;margin-top:24px}
 </style>
 </head>
