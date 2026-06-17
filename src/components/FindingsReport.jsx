@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Download, FileText, Trash2 } from 'lucide-react';
 import { getVerdictColor, getVerdictLabel } from './VerdictBanner';
 
@@ -10,11 +11,30 @@ export default function FindingsReport({
   clearFindings,
   children,
 }) {
+  const [confirmClear, setConfirmClear] = useState(false);
   const counts = findings.reduce((acc, finding) => {
     const key = finding.verdict || 'REVIEW';
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
+  const activeCount = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) !== 'FALSE_POSITIVE').length;
+  const clearMessage = activeCount === 1
+    ? 'You have 1 finding that has not been exported. Export before clearing?'
+    : `You have ${activeCount} findings that may not have been exported. Export before clearing?`;
+  const clearAnyway = () => {
+    setConfirmClear(false);
+    clearFindings();
+  };
+
+  useEffect(() => {
+    if (!activeCount) return undefined;
+    const warnBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [activeCount]);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -45,7 +65,7 @@ export default function FindingsReport({
             }}>
               <FileText size={11} /> AUDIT BRIEF HTML
             </button>
-            <button onClick={clearFindings} style={{
+            <button onClick={() => setConfirmClear(true)} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
               background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text3,
               fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
@@ -73,6 +93,73 @@ export default function FindingsReport({
 
         {children}
       </div>
+
+      {confirmClear && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 50,
+          background: 'rgba(10,12,22,.78)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 18,
+        }}>
+          <div style={{
+            width: 'min(520px, 100%)',
+            background: C.panel,
+            border: `1px solid ${C.amber}55`,
+            borderLeft: `3px solid ${C.amber}`,
+            borderRadius: 4,
+            padding: '18px 20px',
+            boxShadow: '0 24px 80px rgba(0,0,0,.42)',
+          }}>
+            <div style={{ fontSize: 12, color: C.amber, letterSpacing: 1.4, fontWeight: 900, marginBottom: 8 }}>
+              EXPORT BEFORE CLEARING
+            </div>
+            <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.55, marginBottom: 16 }}>
+              {clearMessage}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={exportFindings} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px',
+                background: C.surface, border: `1px solid ${C.borderHi}`, color: C.text2,
+                fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
+              }}>
+                <Download size={11} /> EXPORT JSON
+              </button>
+              <button onClick={exportReport} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px',
+                background: C.amberBg, border: `1px solid ${C.amber}55`, color: C.amber,
+                fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
+              }}>
+                <FileText size={11} /> EXPORT REPORT
+              </button>
+              <button onClick={clearAnyway} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px',
+                background: C.redBg, border: `1px solid ${C.red}55`, color: C.red,
+                fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
+              }}>
+                <Trash2 size={11} /> CLEAR ANYWAY
+              </button>
+              <button onClick={() => setConfirmClear(false)} style={{
+                marginLeft: 'auto',
+                padding: '8px 12px',
+                background: 'transparent',
+                border: `1px solid ${C.border}`,
+                color: C.text3,
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: 1,
+                cursor: 'pointer',
+                borderRadius: 2,
+              }}>
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

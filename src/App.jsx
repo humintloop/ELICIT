@@ -708,13 +708,7 @@ export default function App() {
             exportFindings={exportFindings}
             exportReport={exportReport}
             exportAuditBrief={exportAuditBrief}
-            clearFindings={() => {
-              const activeCount = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) !== 'FALSE_POSITIVE').length;
-              const message = activeCount === 1
-                ? 'You have 1 finding that has not been exported. Export before clearing?'
-                : `You have ${activeCount} findings that may not have been exported. Clear anyway?`;
-              if (confirm(message)) setFindings([]);
-            }}
+            clearFindings={() => setFindings([])}
           >
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <button onClick={newCase} style={btn(C, 'primary')}><FolderOpen size={12} /> START NEW CASE</button>
