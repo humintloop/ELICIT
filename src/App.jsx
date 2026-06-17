@@ -1602,24 +1602,35 @@ function BatchFindingsList({ C, findings, total, onView, judging, currentIndex }
         const verdict = normalizeVerdict(f.judgeVerdict || f.heuristicVerdict || f.verdict);
         const color = getVerdictColor(verdict, C);
         const isActive = judging && (total - findings.length + i === currentIndex);
+        const judged = judging && !!f.judgeVerdict;
+        const jc = judged ? getVerdictColor(normalizeVerdict(f.judgeVerdict), C) : null;
         return (
           <button key={f.id} onClick={() => onView(f)} style={{
-            display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+            display: 'flex', flexDirection: 'column', gap: judged ? 8 : 0, textAlign: 'left',
             padding: '9px 12px', borderRadius: 4, cursor: 'pointer', width: '100%',
             background: isActive ? `${C.blue}12` : C.panel,
             border: `1px solid ${isActive ? C.blue + '55' : color + '33'}`,
             borderLeft: `3px solid ${color}`,
             transition: 'border-color .15s, background .15s',
           }}>
-            <div style={{ width: 8, height: 8, borderRadius: 999, background: color, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: C.text1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {f.payloadName || f.caseId}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 999, background: color, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: C.text1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {f.payloadName || f.caseId}
+                </div>
               </div>
+              <span style={{ fontSize: 11, color, fontWeight: 800, background: `${color}18`, border: `1px solid ${color}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0, letterSpacing: .5 }}>
+                {getVerdictLabel(verdict)}
+              </span>
             </div>
-            <span style={{ fontSize: 11, color, fontWeight: 800, background: `${color}18`, border: `1px solid ${color}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0, letterSpacing: .5 }}>
-              {getVerdictLabel(verdict)}
-            </span>
+            {judged && f.judgeReason && (
+              <div style={{ fontSize: 11, color: C.text2, fontFamily: C.mono, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                maxHeight: 72, overflowY: 'hidden', maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                borderTop: `1px solid ${jc}22`, paddingTop: 6, marginLeft: 20 }}>
+                {f.judgeReason}
+              </div>
+            )}
           </button>
         );
       })}
