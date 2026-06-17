@@ -4,15 +4,19 @@
 
 ![ELICIT social preview](public/brand/elicit-social-preview.png)
 
-Run adversarial LLM evaluation cases in the browser, preserve the evidence locally, and map each finding to the controls and framework readiness questions it informs. WebLLM/WebGPU handles model execution in-browser; after the initial model download, no external API calls are required.
-
 > Red-team LLMs in the browser. Preserve the evidence. Map the control gap.
 
 ---
 
-## Why It Exists
+I built ELICIT because I needed it to exist.
 
-The useful question is not only whether a model can be made to fail. It is what that failure says about instruction hierarchy, data boundaries, monitoring, evidence retention, and the control that should have caught it.
+I first encountered deliberate ambiguity as a technique while serving with the Marine Corps overseas. Listening to a counter-intelligence officer work a conversation with a local national, I watched questions that were not quite questions cause the person to surface information he almost certainly had not meant to. The mechanism was simple: create enough interpretive space and the other party fills it for you.
+
+Years later I applied the same logic to a public AI assistant. A prompt built on deliberate ambiguity caused the model to leak its internal reasoning through its thinking trace, content the system was not designed to expose. I submitted the finding. No bounty was paid. The response was that complete system prompt confidentiality is not something the industry considers a solved problem, a position OWASP LLM07:2025 and current security research both support.
+
+What that research also shows is that prompt extraction is not the end of the attack. It is the beginning. Knowing the system prompt tells an attacker what the model is allowed to do, what it is forbidden from doing, and how those restrictions are expressed in natural language. That is enough to map the instruction boundary, identify where the constraint logic is thin, and craft targeted bypasses against those specific gaps. Researchers now formally classify extraction as the reconnaissance phase of a documented multi-stage attack kill chain. The leak itself may look minor. What it enables is not.
+
+What struck me was not the leak itself. It was that there was no structured way to capture what happened, trace it to a control, or document what the exposure actually meant. ELICIT is what that workflow should have been.
 
 ---
 
@@ -192,20 +196,6 @@ The app parses the `VERDICT:` line and preserves the judge text. JSON judge outp
 - Source ledger, sample report, and README imagery
 - ISO/IEC 42001 section 9, conditional EU AI Act readiness, MITRE ATLAS, OWASP LLM Top 10, and NIST AI RMF mappings
 - Project-defined mitigation and retest guidance
-
-## Origin
-
-I built ELICIT because I needed it to exist.
-
-I first encountered deliberate ambiguity as a technique while serving with the Marine Corps overseas. Listening to a counter-intelligence officer work a conversation with a local national, I watched questions that were not quite questions cause the person to surface information he almost certainly had not meant to. The mechanism was simple: create enough interpretive space and the other party fills it for you.
-
-Years later I applied the same logic to a public AI assistant. A prompt built on deliberate ambiguity caused the model to leak its internal reasoning through its thinking trace, content the system was not designed to expose. I submitted the finding. No bounty was paid. The response was that complete system prompt confidentiality is not something the industry considers a solved problem, a position OWASP LLM07:2025 and current security research both support.
-
-What that research also shows is that prompt extraction is not the end of the attack. It is the beginning. Knowing the system prompt tells an attacker what the model is allowed to do, what it is forbidden from doing, and how those restrictions are expressed in natural language. That is enough to map the instruction boundary, identify where the constraint logic is thin, and craft targeted bypasses against those specific gaps. Researchers now formally classify extraction as the reconnaissance phase of a documented multi-stage attack kill chain. The leak itself may look minor. What it enables is not.
-
-What struck me was not the leak itself. It was that there was no structured way to capture what happened, trace it to a control, or document what the exposure actually meant. ELICIT is what that workflow should have been.
-
----
 
 ## Roadmap
 
