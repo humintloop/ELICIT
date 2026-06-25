@@ -316,8 +316,17 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('elicit-findings') || localStorage.getItem('rtl-findings') || '[]'); } catch { return []; }
   });
 
-  useEffect(() => { localStorage.setItem('elicit-findings', JSON.stringify(findings)); }, [findings]);
-  useEffect(() => { if (analyst) localStorage.setItem('elicit-analyst', analyst); }, [analyst]);
+  const [storageWarning, setStorageWarning] = useState(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('elicit-findings', JSON.stringify(findings));
+      setStorageWarning(null);
+    } catch (e) {
+      setStorageWarning('Could not save findings to local storage — it may be full. Export your findings now to avoid losing evidence.');
+    }
+  }, [findings]);
+  useEffect(() => { if (analyst) { try { localStorage.setItem('elicit-analyst', analyst); } catch (_) {} } }, [analyst]);
   useEffect(() => {
     let cancelled = false;
     simplePromptHash(victimPrompt).then(hash => { if (!cancelled) setPromptHash(hash); });
@@ -325,22 +334,24 @@ export default function App() {
   }, [victimPrompt]);
   useEffect(() => {
     const updatedAt = new Date().toISOString();
-    localStorage.setItem(ACTIVE_CASE_KEY, JSON.stringify({
-      caseId,
-      systemUnderTest,
-      analyst,
-      victimModelId,
-      judgeModelId,
-      victimPrompt,
-      presetId,
-      runPreset,
-      clusterId,
-      probeIndex,
-      judgeMode,
-      selectedControlIds,
-      updatedAt,
-    }));
-    setLastSavedAt(updatedAt);
+    try {
+      localStorage.setItem(ACTIVE_CASE_KEY, JSON.stringify({
+        caseId,
+        systemUnderTest,
+        analyst,
+        victimModelId,
+        judgeModelId,
+        victimPrompt,
+        presetId,
+        runPreset,
+        clusterId,
+        probeIndex,
+        judgeMode,
+        selectedControlIds,
+        updatedAt,
+      }));
+      setLastSavedAt(updatedAt);
+    } catch (_) {}
   }, [caseId, systemUnderTest, analyst, victimModelId, judgeModelId, victimPrompt, presetId, runPreset, clusterId, probeIndex, judgeMode, selectedControlIds]);
 
   const cluster = CLUSTERS.find(c => c.id === clusterId) || CLUSTERS[0];
@@ -496,11 +507,16 @@ export default function App() {
         full += chunk.choices[0]?.delta?.content || '';
         setResponse(full);
       }
+      if (abortRef.current) {
+        setResponse(r => `${r}\n\n[STOPPED — response truncated, not evaluated]`);
+        setRunning(false);
+        return;
+      }
       const result = evaluateResponse(full, victimPrompt, probe.technique);
       setEvalResult(result);
       setRunning(false);
       setStage(STAGE.TRIAGE);
-      if (judgeMode && !abortRef.current) await runJudge(full, probe.payload, probe.technique);
+      if (judgeMode) await runJudge(full, probe.payload, probe.technique);
     } catch (e) {
       setResponse(`\n[ERROR] ${e.message}`);
     }
@@ -808,6 +824,12 @@ export default function App() {
         }
       }
     } catch (_) {}
+    if (judgeModelId !== loadedModelId) {
+      try {
+        setBatchJudgeStatus(s => ({ ...s, name: 'Restoring target model…', isLoadingModel: true }));
+        await engineRef.current.reload(loadedModelId, { initProgressCallback: (p) => setBatchJudgeStatus(s => ({ ...s, name: p.text })) });
+      } catch (_) {}
+    }
     setBatchJudging(false);
     setBatchJudgeStatus(null);
     setStage(STAGE.REPORT);
@@ -970,6 +992,18 @@ export default function App() {
       <CompatGate C={C} />
       {headerBar}
       {stageRail}
+      {storageWarning && (
+        <div style={{
+          padding: '10px 18px', background: C.redBg, borderBottom: `1px solid ${C.red}55`,
+          color: C.red, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+        }}>
+          ⚠ {storageWarning}
+          <button onClick={() => setStorageWarning(null)} style={{
+            marginLeft: 'auto', background: 'transparent', border: 'none', color: C.red,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '2px 6px',
+          }}>DISMISS</button>
+        </div>
+      )}
       {stage !== STAGE.HOME && stage !== STAGE.CASE && stage !== STAGE.SELECT && (
         <SessionContextBar
           C={C}
