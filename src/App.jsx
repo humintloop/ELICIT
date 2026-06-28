@@ -455,12 +455,12 @@ export default function App() {
     resetProbeState();
     setSelectedProbeIds(new Set());
     if (modelStatus === 'ready' && loadedModelId === victimModelId) {
-      setStage(STAGE.SELECT);
+      setStage(STAGE.LOADING);
       return;
     }
     setStage(STAGE.LOADING);
     const ok = await loadModel(victimModelId);
-    setStage(ok ? STAGE.SELECT : STAGE.CASE);
+    if (!ok) setStage(STAGE.CASE);
   };
 
   const resetProbeState = () => {
@@ -1058,7 +1058,15 @@ export default function App() {
         )}
 
         {stage === STAGE.LOADING && (
-          <LoadingStage C={C} cluster={cluster} modelName={selectedVictimModel?.name} modelSize={selectedVictimModel?.size} progress={loadProgress} />
+          <LoadingStage
+            C={C}
+            cluster={cluster}
+            modelName={selectedVictimModel?.name}
+            modelSize={selectedVictimModel?.size}
+            progress={loadProgress}
+            ready={modelStatus === 'ready' && loadedModelId === victimModelId}
+            onContinue={() => setStage(STAGE.SELECT)}
+          />
         )}
 
         {stage === STAGE.SELECT && cluster && (
@@ -1482,7 +1490,7 @@ function SessionContextBar({ C, model, caseId, probeIndex, total, findingsCount,
 }
 
 // ═══ STAGE 2 · Loading (dead-time = briefing) ═════════════════════════════════
-function LoadingStage({ C, cluster, modelName, modelSize, progress }) {
+function LoadingStage({ C, cluster, modelName, modelSize, progress, ready, onContinue }) {
   const color = C[cluster?.colorKey] || C.amber;
   const brief = cluster?.clusterBrief || {};
   const rows = [
@@ -1494,9 +1502,11 @@ function LoadingStage({ C, cluster, modelName, modelSize, progress }) {
 
   return (
     <div className="es-card" style={{ maxWidth: 560, width: '100%', margin: '0 auto', padding: '52px 24px', textAlign: 'center' }}>
-      <SignalBars C={C} color={color} label={progress ? 'preparing target' : 'loading'} count={12} />
+      <SignalBars C={C} color={ready ? C.green : color} label={ready ? 'model loaded' : progress ? 'preparing target' : 'loading'} count={12} />
       <div style={{ marginTop: 12, fontSize: 12, color: C.text3, minHeight: 18 }}>
-        {progress || `Loading ${modelName || 'the model'}${modelSize ? ` (${modelSize})` : ''}…`}
+        {ready
+          ? `${modelName || 'The model'} is loaded and ready for probe selection.`
+          : progress || `Loading ${modelName || 'the model'}${modelSize ? ` (${modelSize})` : ''}…`}
       </div>
 
       <div style={{ marginTop: 36, textAlign: 'left', background: C.panel, border: `1px solid ${color}33`, borderTop: `2px solid ${color}`, borderRadius: 5, padding: '22px 24px' }}>
@@ -1509,9 +1519,21 @@ function LoadingStage({ C, cluster, modelName, modelSize, progress }) {
             <div style={{ fontSize: 13.5, color: C.text1, lineHeight: 1.6 }}>{val}</div>
           </div>
         ))}
-        <div style={{ fontSize: 11, color: C.text3, marginTop: 6, lineHeight: 1.5 }}>
-          Read this while the model loads. The first probe opens automatically when it&apos;s ready.
-        </div>
+        {ready ? (
+          <button onClick={onContinue} style={{
+            width: '100%', marginTop: 8, padding: '11px 14px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: C.greenBg, border: `1px solid ${C.green}`,
+            color: C.green, borderRadius: 4, cursor: 'pointer',
+            fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
+          }}>
+            <Check size={14} /> Model loaded, continue
+          </button>
+        ) : (
+          <div style={{ fontSize: 11, color: C.text3, marginTop: 6, lineHeight: 1.5 }}>
+            Read this while the model loads. Probe selection will wait for your confirmation.
+          </div>
+        )}
       </div>
     </div>
   );
