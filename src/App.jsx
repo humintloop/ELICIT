@@ -600,8 +600,11 @@ export default function App() {
       const result = evaluateResponse(full, victimPrompt, probe.technique);
       setEvalResult(result);
       setRunning(false);
-      setStage(STAGE.TRIAGE);
-      if (judgeMode) await runJudge(full, probe.payload, probe.technique);
+      if (judgeMode) {
+        await runJudge(full, probe.payload, probe.technique);
+      } else {
+        setStage(STAGE.TRIAGE);
+      }
     } catch (e) {
       setResponse(`\n[ERROR] ${e.message}`);
     }
@@ -621,6 +624,7 @@ export default function App() {
         await engineRef.current.reload(judgeModelId, { initProgressCallback: (p) => setLoadProgress(p.text) });
         setLoadProgress('');
       }
+      if (abortRef.current) { setJudging(false); await continueFromJudge(); return; }
       const trunc = (s, n) => s.length > n ? s.slice(0, n) + '\n[truncated]' : s;
       const judgeInput = `System prompt of victim:\n"""\n${trunc(victimPrompt, 600)}\n"""\n\nAttack payload:\n"""\n${trunc(payload, 400)}\n"""\n\nModel response:\n"""\n${trunc(attackResponse, 1200)}\n"""`;
       const judgeStream = await engineRef.current.chat.completions.create({
@@ -634,8 +638,15 @@ export default function App() {
       });
       let judgeText = '';
       for await (const chunk of judgeStream) {
+        if (abortRef.current) break;
         judgeText += chunk.choices[0]?.delta?.content || '';
         setJudgeStreamText(judgeText);
+      }
+      if (abortRef.current) {
+        setJudgeStreamText('');
+        setJudging(false);
+        await continueFromJudge();
+        return;
       }
       const upper = judgeText.toUpperCase();
       const tagged = upper.match(/VERDICT:\s*(SUCCESS|PARTIAL|FAILURE)/);
@@ -659,7 +670,7 @@ export default function App() {
     setJudging(false);
   };
 
-  // ── User clicks through the judge result screen ──
+  // ── User clicks through the judge result screen (or the judge was stopped) ──
   const continueFromJudge = async () => {
     if (judgeModelId !== loadedModelId) {
       setLoadProgress('Reloading target model…');
@@ -669,6 +680,7 @@ export default function App() {
       setLoadProgress('');
     }
     setJudgeAcknowledged(true);
+    setStage(STAGE.TRIAGE);
   };
 
   // ── Log a finding with a disposition, then advance ──
@@ -1071,11 +1083,11 @@ export default function App() {
         {[
           ['Setup', stage === STAGE.CASE, () => setStage(STAGE.CASE), true],
           ['Load Model', stage === STAGE.LOADING, () => setStage(STAGE.LOADING), true],
-          [batchRunning ? 'Probe' : batchJudging ? 'Review Finding' : `Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE || stage === STAGE.SELECT, () => setStage(stage === STAGE.SELECT ? STAGE.SELECT : STAGE.PROBE), stage !== STAGE.LOADING],
+          [batchRunning ? 'Probe' : (batchJudging || (evalResult && (judging || (judgeResult && !judgeAcknowledged)))) ? 'Review Finding' : `Probe ${probeIndex + 1}/${clusterPayloads.length}`, stage === STAGE.PROBE || stage === STAGE.SELECT, () => setStage(stage === STAGE.SELECT ? STAGE.SELECT : STAGE.PROBE), stage !== STAGE.LOADING],
           ['Review Finding', stage === STAGE.TRIAGE, () => setStage(STAGE.TRIAGE), Boolean(evalResult || response || triageTotal)],
           ['Report', stage === STAGE.REPORT, () => setStage(STAGE.REPORT), true],
         ].map(([label, active, onClick, enabled], i) => (
-          <button key={label} onClick={onClick} disabled={!enabled} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, background: active ? C.amberBg : 'transparent', border: `1px solid ${active ? C.amber : 'transparent'}`, borderRadius: 3, padding: '4px 7px', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .45 }}>
+          <button key={i} onClick={onClick} disabled={!enabled} style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0, background: active ? C.amberBg : 'transparent', border: `1px solid ${active ? C.amber : 'transparent'}`, borderRadius: 3, padding: '4px 7px', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .45 }}>
             {i > 0 && <ChevronRight size={11} color={C.border} style={{ margin: '0 9px' }} />}
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: label === 'Triage' ? triageDotColor : active ? C.amber : C.borderHi, boxShadow: label === 'Triage' && triageAwaiting ? `0 0 10px ${C.amber}` : active ? `0 0 8px ${C.amber}99` : 'none', animation: label === 'Triage' && triageAwaiting ? 'pulse 1.1s ease-in-out infinite' : 'none' }} />
             <span style={{ fontSize: 12, letterSpacing: 1, fontWeight: active ? 800 : 500, color: active ? C.amber : C.text3, textTransform: 'uppercase' }}>{label}</span>
@@ -1218,6 +1230,17 @@ export default function App() {
               <BatchJudgeRunner C={C} status={batchJudgeStatus} findings={findings} batchFindingIds={batchFindingIds} onViewFinding={setBatchViewFinding} onStop={() => { abortRef.current = true; }} />
             ) : batchRunning && batchStatus ? (
               <BatchRunner C={C} status={batchStatus} findings={findings} batchFindingIds={batchFindingIds} onViewFinding={setBatchViewFinding} onStop={() => { abortRef.current = true; }} />
+            ) : evalResult && (judging || (judgeResult && !judgeAcknowledged)) ? (
+              <JudgeRunner
+                C={C}
+                probe={probe} index={probeIndex} total={clusterPayloads.length}
+                victimPrompt={victimPrompt} response={response}
+                evalResult={evalResult} judgeResult={judgeResult}
+                judging={judging} judgeStreamText={judgeStreamText}
+                loadProgress={loadProgress}
+                onContinue={continueFromJudge}
+                onStop={stopProbe}
+              />
             ) : (
               <ProbeStage
                 C={C}
@@ -1273,10 +1296,7 @@ export default function App() {
               victimPrompt={victimPrompt}
               response={response}
               evalResult={evalResult}
-              judgeMode={judgeMode} judgeResult={judgeResult} judging={judging}
-              judgeStreamText={judgeStreamText} judgeAcknowledged={judgeAcknowledged}
-              onContinueFromJudge={continueFromJudge}
-              loadProgress={loadProgress}
+              judgeMode={judgeMode} judgeResult={judgeResult}
               loggedFlash={loggedFlash}
               isLast={isLastProbe}
             onLog={logFinding}
@@ -2017,6 +2037,100 @@ function BatchRunner({ C, status, findings, batchFindingIds, onViewFinding, onSt
   );
 }
 
+// Single-probe judge phase — styled to match BatchJudgeRunner so the hand-off
+// from running a probe into judging it doesn't feel like a different screen.
+function JudgeRunner({ C, probe, index, total, victimPrompt, response, evalResult, judgeResult, judging, judgeStreamText, loadProgress, onContinue, onStop }) {
+  const isLoadingModel = judging && Boolean(loadProgress);
+  const hc = evalResult ? getVerdictColor(evalResult.verdict, C) : C.text3;
+  const jc = judgeResult ? getVerdictColor(judgeResult.verdict, C) : C.teal;
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ padding: '24px 28px 16px', display: 'flex', flexDirection: 'column', gap: 14, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.blue, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 6 }}>Judge Review</div>
+            <div style={{ fontSize: 18, color: C.text1, fontWeight: 700 }}>
+              {isLoadingModel ? 'Loading judge model…' : <>Probe {index + 1} <span style={{ color: C.text3, fontWeight: 400 }}>/ {total}</span></>}
+            </div>
+          </div>
+          <button onClick={onStop} style={{
+            padding: '8px 14px', background: C.redBg, border: `1px solid ${C.red}55`,
+            color: C.red, fontSize: 12, fontWeight: 700, letterSpacing: 1, borderRadius: 3, cursor: 'pointer',
+          }}>STOP</button>
+        </div>
+
+        <div style={{ height: 4, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
+          {isLoadingModel || (judging && !judgeResult) ? (
+            <div style={{ width: '100%', height: '100%', background: `linear-gradient(90deg, transparent, ${C.blue}, transparent)`, animation: 'shimmer 1.4s ease-in-out infinite', backgroundSize: '200% 100%' }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: C.blue, borderRadius: 2, transition: 'width .4s ease' }} />
+          )}
+        </div>
+
+        {!isLoadingModel && (
+          <div style={{ padding: '10px 14px', background: C.panel, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+            <div style={{ fontSize: 11, color: C.text3, letterSpacing: 1.2, marginBottom: 4 }}>EVALUATING</div>
+            <div style={{ fontSize: 14, color: C.text2, fontWeight: 600 }}>{probe.name}</div>
+          </div>
+        )}
+        {isLoadingModel && (
+          <div style={{ padding: '12px 14px', background: C.panel, border: `1px solid ${C.blue}33`, borderRadius: 4 }}>
+            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
+              {loadProgress || 'Downloading judge model weights — this only happens once, then it stays cached.'}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Heuristic + judge cards, evidence — expanded inline, no click required */}
+      <div style={{ margin: '0 28px 18px', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {evalResult && (
+            <div style={{ flex: '1 1 220px', background: `${hc}0D`, border: `1px solid ${hc}44`, borderLeft: `3px solid ${hc}`, borderRadius: 4, padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, color: C.text3, letterSpacing: 1.3, marginBottom: 4 }}>HEURISTIC</div>
+              <div style={{ fontSize: 12, color: hc, fontWeight: 800 }}>{getVerdictLabel(evalResult.verdict)}</div>
+              {evalResult.reason && <div style={{ fontSize: 11, color: C.text2, marginTop: 5, lineHeight: 1.5, fontFamily: C.mono }}>{evalResult.reason}</div>}
+            </div>
+          )}
+          <div style={{ flex: '1 1 220px', background: `${jc}0D`, border: `1px solid ${jc}44`, borderLeft: `3px solid ${jc}`, borderRadius: 4, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: C.teal, letterSpacing: 1.3, marginBottom: 4 }}>LLM JUDGE</div>
+            <div style={{ fontSize: 12, color: jc, fontWeight: 800 }}>{judgeResult ? getVerdictLabel(judgeResult.verdict) : 'Evaluating…'}</div>
+            <div style={{ fontSize: 11, color: C.text2, marginTop: 5, lineHeight: 1.5, fontFamily: C.mono, maxHeight: 160, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {judgeStreamText || judgeResult?.text || 'Sending to judge…'}
+              {judging && !isLoadingModel && <span style={{ animation: 'blink 1s infinite', marginLeft: 2 }}>▊</span>}
+            </div>
+          </div>
+        </div>
+
+        <ConversationTranscript
+          C={C}
+          victimPrompt={victimPrompt}
+          payload={probe.payload}
+          response={response}
+          running={false}
+          evalResult={null}
+          judgeResult={null}
+        />
+      </div>
+
+      {judgeResult && (
+        <div style={{ position: 'sticky', bottom: 0, margin: '0 28px', padding: '10px 0 20px', background: `linear-gradient(transparent, ${C.bg} 30%)` }}>
+          <button onClick={onContinue} style={{
+            width: '100%', padding: '14px', borderRadius: 4, border: `1px solid ${C.teal}55`, cursor: 'pointer',
+            background: C.teal, color: C.ink, fontSize: 13, fontWeight: 900, letterSpacing: 2, fontFamily: C.mono,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: `0 0 20px ${C.teal}44`,
+          }}>
+            CONTINUE ASSESSMENT <ChevronRight size={15} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProbeExplainer({ C, cluster, probe }) {
   const mapping = buildCaseMapping(probe.technique || cluster?.id, probe);
   const controls = mapping.mapped_controls || [];
@@ -2108,11 +2222,6 @@ function TriageStage({
   evalResult,
   judgeMode,
   judgeResult,
-  judging,
-  judgeStreamText,
-  judgeAcknowledged,
-  onContinueFromJudge,
-  loadProgress,
   loggedFlash,
   isLast,
   onLog,
@@ -2146,90 +2255,6 @@ function TriageStage({
           <button onClick={onReport} style={btn(C, 'ghost')}>OPEN REPORT</button>
           <button onClick={onRetry} style={btn(C, 'ghost')}><RotateCcw size={12} /> RERUN THIS PROBE</button>
         </div>
-      </div>
-    );
-  }
-
-  if (judging || (judgeResult && !judgeAcknowledged)) {
-    const hc = evalResult ? getVerdictColor(evalResult.verdict, C) : C.text3;
-    const jc = judgeResult ? getVerdictColor(judgeResult.verdict, C) : C.teal;
-    return (
-      <div className="es-card" style={{ flex: 1, width: '100%', padding: '24px 24px 32px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-        <ConversationTranscript
-          C={C}
-          victimPrompt={victimPrompt}
-          payload={probe.payload}
-          response={response}
-          running={false}
-          evalResult={evalResult}
-          judgeResult={null}
-          compact
-        />
-
-        {/* Verdict cards — both evaluators side by side */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {/* Heuristic */}
-          {evalResult && (
-            <div style={{
-              flex: '1 1 240px',
-              background: `${hc}0D`,
-              border: `1px solid ${hc}55`,
-              borderLeft: `3px solid ${hc}`,
-              borderRadius: 5,
-              padding: '14px 16px',
-              boxShadow: `0 0 18px ${hc}22`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <div style={{ fontSize: 11, color: C.text3, fontWeight: 900, letterSpacing: 1.4 }}>HEURISTIC</div>
-                <span style={{ fontSize: 12, color: hc, fontWeight: 800, border: `1px solid ${hc}55`, padding: '2px 8px', borderRadius: 2, background: `${hc}18` }}>
-                  {getVerdictLabel(evalResult.verdict)}
-                </span>
-              </div>
-              <div style={{ fontFamily: C.mono, fontSize: 13, color: C.text2, lineHeight: 1.65 }}>
-                {evalResult.reason}
-              </div>
-            </div>
-          )}
-
-          {/* Judge */}
-          <div style={{
-            flex: '1 1 240px',
-            background: judgeResult ? `${jc}0D` : C.panel,
-            border: `1px solid ${judgeResult ? jc + '55' : C.teal + '33'}`,
-            borderLeft: `3px solid ${judgeResult ? jc : C.teal}`,
-            borderRadius: 5,
-            padding: '14px 16px',
-            boxShadow: judgeResult ? `0 0 18px ${jc}22` : `0 0 12px ${C.teal}11`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: C.teal, fontWeight: 900, letterSpacing: 1.4 }}>LLM JUDGE</div>
-              {judging && <SignalBars C={C} color={C.teal} count={6} label="" style={{ display: 'inline-flex' }} />}
-              {judgeResult && (
-                <span style={{ fontSize: 12, color: jc, fontWeight: 800, border: `1px solid ${jc}55`, padding: '2px 8px', borderRadius: 2, background: `${jc}18` }}>
-                  {getVerdictLabel(judgeResult.verdict)}
-                </span>
-              )}
-            </div>
-            <div style={{ fontFamily: C.mono, fontSize: 13, color: C.text1, lineHeight: 1.65, whiteSpace: 'pre-wrap', minHeight: 40 }}>
-              {judgeStreamText || judgeResult?.text || ''}
-              {judging && <span style={{ animation: 'blink 1s infinite', marginLeft: 2 }}>▊</span>}
-            </div>
-            {loadProgress && <div style={{ marginTop: 8, fontSize: 11, color: C.text3 }}>{loadProgress}</div>}
-          </div>
-        </div>
-
-        {judgeResult && !judgeAcknowledged && (
-          <div style={{ position: 'sticky', bottom: 0, padding: '10px 0 4px', background: `linear-gradient(transparent, ${C.bg} 30%)` }}>
-            <button onClick={onContinueFromJudge} style={{
-              width: '100%', padding: '14px', borderRadius: 4, border: `1px solid ${C.teal}55`, cursor: 'pointer',
-              background: C.teal, color: C.ink, fontSize: 13, fontWeight: 900, letterSpacing: 2, fontFamily: C.mono,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              boxShadow: `0 0 20px ${C.teal}44`,
-            }}>
-              CONTINUE ASSESSMENT <ChevronRight size={15} />
-            </button>
-          </div>
-        )}
       </div>
     );
   }
