@@ -22,6 +22,20 @@ The tool reflects that background. Intelligence work is not about finding failur
 
 ---
 
+## Who ELICIT Is For
+
+ELICIT is for work that sits between AI security testing and governance assurance. A successful probe has to become defensible evidence, not just a screenshot.
+
+That includes:
+
+- **Security and red teams** testing model behavior and documenting adversarial findings;
+- **AI governance and GRC teams** validating whether technical controls actually operate as intended, and tracing findings to control requirements;
+- **Internal audit, assurance, and consultants** who need repeatable assessment records and retest evidence, not a folder of one-off prompts.
+
+ELICIT does not replace professional judgment, compliance analysis, or formal audit procedures. It makes the technical evidence behind those activities structured, traceable, and reviewable.
+
+---
+
 ## Responsible Use
 
 This project is designed for authorized security research, internal AI assurance, and evaluation of systems you own or have explicit permission to test. Do not use it against production AI systems without authorization.
