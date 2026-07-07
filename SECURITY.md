@@ -49,3 +49,15 @@ This is an early-stage project, so response times may vary. The goal is to ackno
 Do not test ELICIT or any LLM-enabled system without authorization. Do not use this project to attack production systems, bypass access controls, extract data from systems you do not own, or publish active exploit material without permission.
 
 Framework mappings and evaluation outputs are evidence indicators only. They do not establish legal, audit, certification, or regulatory conclusions.
+
+
+## Local Assessment Data Handling
+
+ELICIT is local-first, but local data can still be sensitive. The active target system prompt is held in memory and is not persisted to localStorage by default. ELICIT-owned localStorage keys store active-case metadata, locally saved findings, and analyst metadata. The app includes a **CLEAR LOCAL ASSESSMENT DATA** control that removes those ELICIT-owned keys without calling `localStorage.clear()`.
+
+Evidence exports may include full model responses, attack payloads, evaluator rationale, reviewer notes, model/runtime metadata, control mappings, and other assessment metadata. Newly created findings and exports use the target prompt hash where prompt context is needed and do not include plaintext target prompt previews. Exports are not immutable, tamper-proof, or cryptographically signed.
+
+
+## Content Security Policy Note
+
+A stricter CSP should be added only after validating WebLLM model downloads, module workers, WASM execution, Google Fonts, GitHub Pages hosting, and the cross-origin isolation service worker together. A candidate policy will likely need allowances for `script-src`/`worker-src` module workers and WebLLM runtime assets, `connect-src` model artifact origins, `font-src` Google font assets unless self-hosted, and the existing COOP/COEP service-worker path. This pass intentionally does not add a CSP because an under-tested policy could break browser-local inference or cross-origin isolation.

@@ -110,7 +110,7 @@ ELICIT runs models in your browser through WebLLM and WebGPU. When you click **L
 
 During the first download, compilation, or WebGPU initialization, the tab may appear frozen or unresponsive for a short period. This is expected for local browser inference, especially on larger models or machines with limited GPU memory. Judge mode can trigger another model download or model swap when it runs, then reload the victim model afterward.
 
-No external inference API is called by the app after the static site and model files are fetched. Findings, full responses, and reviewer notes are stored locally in the browser unless you export them.
+No external inference API is called by the app after the static site and model files are fetched. The active target system prompt is held in browser memory and is not persisted to local storage by default. Findings, full responses, assessment metadata, and reviewer notes may be stored locally in the browser unless you clear them or export them.
 
 ---
 
@@ -165,6 +165,15 @@ Default framework/control mappings are applied by technique through `src/data/fr
 
 ---
 
+
+## Local Data and Exports
+
+ELICIT stores only ELICIT-owned assessment data in browser local storage. The target system prompt is memory-only by default; active-case persistence keeps metadata such as case ID, selected models, probe position, selected controls, and reviewer configuration, but not the raw prompt.
+
+Use **CLEAR LOCAL ASSESSMENT DATA** in the app to remove ELICIT-owned local cases, findings, assessment metadata, and locally persisted evidence from the current browser profile. This does not delete files you have already downloaded.
+
+JSON, Markdown, and HTML exports can contain complete model responses, attack payloads, evaluator rationale, analyst notes, model IDs/settings, control mappings, and assessment metadata. Review exported files before sharing them. Prompt context is represented by a SHA-256 prompt hash when available, not by a plaintext prompt preview.
+
 ## Reports
 
 The findings view supports:
@@ -172,7 +181,7 @@ The findings view supports:
 - `EXPORT JSON` — raw machine-readable evidence records.
 - `EXPORT REPORT` — Markdown assessment report with findings, response excerpts, evaluator outputs, impacted controls, framework readiness gaps, mitigation guidance, and retest guidance.
 
-Evidence records include run IDs, case versions, model/runtime metadata, model settings, full responses retained locally, evaluator outputs, mapped controls, ISO/EU readiness relevance, recommended mitigations, retest guidance, and reviewer decisions. They are local records, not immutable audit trails.
+Evidence records include run IDs, case versions, model/runtime metadata, model settings, target prompt hashes, full responses retained locally, evaluator outputs, mapped controls, ISO/EU readiness relevance, recommended mitigations, retest guidance, and reviewer decisions. They do not include plaintext target prompt previews in newly created findings or exports. They are local records, not immutable audit trails.
 
 ## Judge Output
 

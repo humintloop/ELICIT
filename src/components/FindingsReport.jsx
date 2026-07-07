@@ -19,8 +19,8 @@ export default function FindingsReport({
   }, {});
   const activeCount = findings.filter(f => (f.reviewerDecision || f.reviewer_decision) !== 'FALSE_POSITIVE').length;
   const clearMessage = activeCount === 1
-    ? 'You have 1 finding that has not been exported. Export before clearing?'
-    : `You have ${activeCount} findings that may not have been exported. Export before clearing?`;
+    ? 'This will remove ELICIT-owned local case data, 1 locally stored finding, assessment metadata, and locally persisted evidence from this browser. Downloaded exports are not deleted.'
+    : `This will remove ELICIT-owned local case data, ${activeCount} locally stored findings, assessment metadata, and locally persisted evidence from this browser. Downloaded exports are not deleted.`;
   const clearAnyway = () => {
     setConfirmClear(false);
     clearFindings();
@@ -73,7 +73,7 @@ export default function FindingsReport({
               background: 'transparent', border: `1px solid ${C.border}`, color: C.text3,
               fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
             }}>
-              <Trash2 size={11} /> CLEAR
+              <Trash2 size={11} /> CLEAR LOCAL DATA
             </button>
           </div>
         )}
@@ -130,7 +130,7 @@ export default function FindingsReport({
             boxShadow: '0 24px 80px rgba(0,0,0,.42)',
           }}>
             <div style={{ fontSize: 12, color: C.amber, letterSpacing: 1.4, fontWeight: 900, marginBottom: 8 }}>
-              EXPORT BEFORE CLEARING
+              CLEAR LOCAL ASSESSMENT DATA
             </div>
             <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.55, marginBottom: 16 }}>
               {clearMessage}
@@ -155,7 +155,7 @@ export default function FindingsReport({
                 background: C.redBg, border: `1px solid ${C.red}55`, color: C.red,
                 fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', borderRadius: 2,
               }}>
-                <Trash2 size={11} /> CLEAR ANYWAY
+                <Trash2 size={11} /> DELETE LOCAL DATA
               </button>
               <button onClick={() => setConfirmClear(false)} style={{
                 marginLeft: 'auto',
